@@ -3,8 +3,8 @@ import crypto from 'crypto'
 
 // 替换成你页面里的UPSTASH_REDIS_REST_URL、UPSTASH_REDIS_REST_TOKEN
 const redis = createClient({
-  url:"填入你的KV_REST_API_URL",
-  token:"填入你的KV_REST_API_TOKEN"
+  url:"https://trusted-mayfly-113263.upstash.io",
+  token:"gQAAAAAAAbpvAAIgcDExNDY2NDlkYWZlMTA0YzIxYWVkNjlhYmEzNzJmMmM3ZQ"
 })
 
 const SECRET_SALT = "sk5689xd2026#1t"
