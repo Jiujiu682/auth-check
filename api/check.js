@@ -5,8 +5,7 @@ const REST_URL = "https://peaceful-wildcat-141681.upstash.io";
 const REST_TOKEN = "gQAAAAAAilxAAIgcDJhZjhkMmExMWIyODI0ZTA2YTBhMDU2ZDNlZDFjZWM0ZQ";
 const HEADER_AUTH = `Bearer ${REST_TOKEN}`;
 const SECRET_SALT = "sk5689xd2026#1t";
-const keyPool = [["ceshi133", 1]
-                ,["ceshi135", 1]];
+const keyPool = [["ceshi133", 1],["ceshi136", 1]];
 
 const encryptKey = (str) => crypto.createHmac("md5", SECRET_SALT).update(str).digest("hex");
 
@@ -26,18 +25,18 @@ export async function POST(req) {
   const { key } = body;
   const mdKey = encryptKey(key);
 
-  let blackData = await runRedis("get usedBlackList");
+  let blackData = await runRedis("get/usedBlackList");
   let blackList = Array.isArray(blackData.result) ? blackData.result : [];
   if (blackList.includes(mdKey)) return NextResponse.json({ ok: false });
 
-  let activeData = await runRedis(`get active:${mdKey}`);
+  let activeData = await runRedis(`get/active:${mdKey}`);
   const now = new Date();
   if (activeData.result) {
     let expire = new Date(activeData.result);
     if (expire <= now) {
       blackList.push(mdKey);
-      await runRedis(`set usedBlackList ${JSON.stringify(blackList)}`);
-      await runRedis(`del active:${mdKey}`);
+      await runRedis(`set/usedBlackList/${encodeURIComponent(JSON.stringify(blackList))}`);
+      await runRedis(`del/active:${mdKey}`);
       return NextResponse.json({ ok: false });
     }
     return NextResponse.json({ ok: true });
@@ -51,6 +50,6 @@ export async function POST(req) {
 
   let expireDay = new Date();
   expireDay.setDate(expireDay.getDate() + days);
-  await runRedis(`set active:${mdKey} "${expireDay.toISOString()}"`);
+  await runRedis(`set/active:${mdKey}/${encodeURIComponent(expireDay.toISOString())}`);
   return NextResponse.json({ ok: true });
 }
