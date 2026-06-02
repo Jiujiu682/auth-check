@@ -1,41 +1,43 @@
 const crypto = require('crypto')
 
-//发卡密：["卡密","天数"]
 const keyPool = [
-  ["gggggggggg333",1],
-  ["hubeufuisfi1661",1],
-  ["fgbgkrnsjng1919",1]
+    ["gegggegggg333",1],
+    ["hubeufuisfi1661",1],
+    ["fgbgkrnsjng1919",1]
 ]
-//已激活（这里自动存加密密文，不用手动改）
+
 let activeKey = {}
-//改成你专属乱码，越长越安全
-const SECRET_SALT = "sk5689&xd2026#lt"
+const SECRET_SALT = "sk5689xd2026#1t"
 
 function encryptKey(str){
-  return crypto.createHmac('md5',SECRET_SALT).update(str).digest('hex')
+    return crypto.createHmac('md5',SECRET_SALT).update(str).digest('hex')
 }
 
 export default async (req,res)=>{
-  res.setHeader("Access-Control-Allow-Origin","*")
-  if(req.method !== "POST") return res.json({ok:false})
-  const {key}=req.body
-  if(!key) return res.json({ok:false})
+    res.setHeader("Access-Control-Allow-Origin","*")
+    if(req.method !== "POST") return res.json({ok:false})
+    const {key}=req.body
+    if(!key) return res.json({ok:false})
 
-  let md5k = encryptKey(key)
-  //已激活校验时间
-  if(activeKey[md5k]){
-    return res.json({ok:new Date(activeKey[md5k])>new Date()})
-  }
+    let md5k = encryptKey(key)
+    if(activeKey[md5k]){
+        return res.json({ok:new Date(activeKey[md5k])>new Date()})
+    }
 
-  //查找有效卡密
-  let useDay=0
-  for(let [k,d] of keyPool){
-    if(k===key) useDay=d
-  }
-  if(useDay===0) return res.json({ok:false})
+    let useDay=0
+    for(let item of keyPool){
+        let raw = item[0]
+        let day = item[1]
+        if(raw === key && day>0){
+            useDay = day
+            item[1] = item[1]-1
+            let expire = new Date()
+            expire.setDate(expire.getDate()+useDay)
+            activeKey[md5k] = expire.getTime()
+            break
+        }
+    }
 
-  //激活入库
-  let end = new Date(Date.now()+useDay*86400000)
-  activeKey[md5k]=end.toLocaleDateString()
-  res.json({ok:true})
+    if(useDay===0) return res.json({ok:false})
+    return res.json({ok:true})
 }
