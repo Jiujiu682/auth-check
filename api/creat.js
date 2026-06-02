@@ -1,27 +1,20 @@
 const CryptoJS = require("crypto-js");
-const fs = require("fs");
-const path = require("path");
 const KEY = "abc1234567890key";
-const db = path.join(__dirname, "db.json");
-const load = () => fs.existsSync(db) ? JSON.parse(fs.readFileSync(db, "utf8")) : [];
-const save = d => fs.writeFileSync(db, JSON.stringify(d, null, 2));
-const dec = s => JSON.parse(CryptoJS.AES.decrypt(s, KEY).toString(CryptoJS.enc.Utf8));
-const enc = o => CryptoJS.AES.encrypt(JSON.stringify(o), KEY).toString();
-const rand = () => {
-  let s = "", c = "ABCDEFGabcdefg1234567890";
-  for (let i = 32; i--; ) s += c[Math.floor(Math.random() * c.length)];
-  return s;
-}
-
-module.exports = (req, res) => {
-  let arr = load();
-  let d = dec(req.body.payload);
+global.cardList = global.cardList || [];
+const decode = s => JSON.parse(CryptoJS.AES.decrypt(s, KEY).toString(CryptoJS.enc.Utf8));
+const encode = d => CryptoJS.AES.encrypt(JSON.stringify(d), KEY).toString();
+const genCode = () => {
+  let res = "", chars = "ABCDEFGHIJKLMNOPQRSTabcdefghijklmnopq1234567890";
+  for(let i=0;i<32;i++) res += chars[Math.floor(Math.random()*chars.length)];
+  return res;
+};
+module.exports = (req,res)=>{
+  let data = decode(req.body.payload);
   let add = [];
-  let t = new Date().toLocaleString();
-  for (let i = d.num; i--; ) {
-    add.push({ code: rand(), type: d.type, useTime: "未使用", ban: "正常", day: d.day, create: t })
+  let time = new Date().toLocaleString();
+  for(let i=0;i<data.num;i++){
+    add.push({code:genCode(),type:data.type,useTime:"未使用",ban:"正常",day:data.day,create:time})
   }
-  arr.push(...add);
-  save(arr);
-  res.json({ payload: enc({ msg: `生成${d.num}张`, list: add }) });
+  global.cardList.push(...add);
+  res.json({payload:encode({msg:`成功${data.num}张`,list:add})})
 }
