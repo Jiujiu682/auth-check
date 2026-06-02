@@ -9,12 +9,12 @@ const keyPool = [["ceshi133", 1],["ceshi135", 1],["ceshi137",1]];
 
 const encryptKey = (str) => crypto.createHmac("md5", SECRET_SALT).update(str).digest("hex");
 
-// 核心修复：空格转斜杠适配Upstash REST
 async function runRedis(cmd) {
-  const path = cmd.split(" ").join("/");
-  const res = await fetch(`${REST_URL}/${path}`, {
-    headers: { Authorization: HEADER_AUTH },
-  });
+  // 空格自动转为/，适配Upstash REST接口
+  const urlPath = cmd.split(" ").join("/");
+  const res = await fetch(`${REST_URL}/${urlPath}`, {
+    headers: { Authorization: HEADER_AUTH }
+  })
   return res.json();
 }
 
@@ -27,10 +27,12 @@ export async function POST(req) {
   const { key } = body;
   const mdKey = encryptKey(key);
 
+  // 读取黑名单
   let blackData = await runRedis("GET usedBlackList");
   let blackList = Array.isArray(blackData.result) ? blackData.result : [];
   if (blackList.includes(mdKey)) return NextResponse.json({ ok: false });
 
+  // 查询是否已激活
   let activeData = await runRedis(`GET active:${mdKey}`);
   const now = new Date();
   if (activeData.result) {
@@ -44,12 +46,14 @@ export async function POST(req) {
     return NextResponse.json({ ok: true });
   }
 
+  // 匹配卡密天数
   let days = 0;
   for (let [k, d] of keyPool) {
     if (k === key) days = d;
   }
   if (!days) return NextResponse.json({ ok: false });
 
+  // 写入有效期到Redis
   let expireDay = new Date();
   expireDay.setDate(expireDay.getDate() + days);
   await runRedis(`SET active:${mdKey} ${expireDay.toISOString()}`);
