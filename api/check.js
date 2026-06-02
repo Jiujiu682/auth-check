@@ -1,7 +1,7 @@
 import { createClient } from '@upstash/redis'
 const redis = createClient({
-  url:"粘贴你的url",
-  token:"粘贴你的token"
+  url:"https://trusted-mayfly-113263.upstash.io",
+  token:"gQAAAAAAAbpvAAIgcDExNDY2NDlkYWZlMTA0YzIxYWVkNjlhYmEzNzJmMmM3ZQ"
 })
 
 export default async function handler(req,res){
