@@ -14,6 +14,7 @@ async function runRedis(cmd){
   return res.json()
 }
 
+//只接收POST，正好匹配你的python软件post请求
 export async function POST(req){
   const body = await req.json()
   const {key} = body
