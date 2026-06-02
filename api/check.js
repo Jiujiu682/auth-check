@@ -5,7 +5,8 @@ const REST_URL = "https://peaceful-wildcat-141681.upstash.io";
 const REST_TOKEN = "gQAAAAAAilxAAIgcDJhZjhkMmExMWIyODI0ZTA2YTBhMDU2ZDNlZDFjZWM0ZQ";
 const HEADER_AUTH = `Bearer ${REST_TOKEN}`;
 const SECRET_SALT = "sk5689xd2026#1t";
-const keyPool = [["ceshi133", 1]];
+const keyPool = [["ceshi133", 1]
+                ,["ceshi135", 1]];
 
 const encryptKey = (str) => crypto.createHmac("md5", SECRET_SALT).update(str).digest("hex");
 
