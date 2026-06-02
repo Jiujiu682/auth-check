@@ -4,7 +4,7 @@ const path = require('path')
 
 const KEY_FILE = path.resolve('./active.json')
 const keyPool = [
-    ["gegggegggg333",1],
+    ["gegggegg333",1],
     ["hubeufuisfi1661",1],
     ["fgbgkrnsjng1919",1]
 ]
