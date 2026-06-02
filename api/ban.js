@@ -1,6 +1,10 @@
 const { webcrypto } = require('node:crypto');
+const fs = require('fs');
+const path = require('path');
 const SEC = 'abc1234567890key';
-const db = global.keyDB;
+const dbFile = path.join(__dirname, 'db.json');
+const loadDB = ()=>JSON.parse(fs.readFileSync(dbFile,'utf8'));
+const saveDB = d=>fs.writeFileSync(dbFile,JSON.stringify(d,null,2));
 
 async function getKey(){
   return webcrypto.subtle.importKey('raw',Buffer.from(SEC),{name:'AES-CBC'},false,['encrypt','decrypt'])
@@ -22,7 +26,9 @@ async function aesEnc(obj){
 }
 
 module.exports=async(req,res)=>{
+  let db = loadDB();
   const {keys}=await aesDec(req.body.payload);
-  db.forEach(d=>{if(keys.includes(d.code))d.ban='封禁'})
-  res.json({payload:await aesEnc({msg:'ok'})})
+  db.forEach(i=>{if(keys.includes(i.code))i.ban='封禁'});
+  saveDB(db);
+  res.json({payload:await aesEnc({msg:'ok'})});
 }
