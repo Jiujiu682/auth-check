@@ -1,62 +1,62 @@
 import { createClient } from '@upstash/redis'
 import crypto from 'crypto'
 
+// 填入你的Upstash URL、TOKEN
 const redis = createClient({
-  url:"填你的URL",
-  token:"填你的TOKEN"
+  url: "https://trusted-mayfly-113263.upstash.io",
+  token: "gQAAAAAAAbpvAAIgcDExNDY2NDlkYWZlMTA0YzIxYWVkNjlhYmEzNzJmMmM3ZQ"
 })
-
 const SECRET_SALT = "sk5689xd2026#1t"
-//这里填所有可用卡密 [卡密,天数]
-const keyPool = [
-    ["5201314a",1],
-    ["hubei2025",1],
-    ["fgbgkrnsjng1919",1],
-]
+// 测试卡密
+const keyPool = [["789369", 1]]
 
-const encryptKey = (str)=>crypto.createHmac('md5',SECRET_SALT).update(str).digest('hex')
+const encryptKey = (str) => crypto.createHmac('md5', SECRET_SALT).update(str).digest('hex')
 
-export default async (req,res)=>{
-    res.setHeader("Access-Control-Allow-Origin","*")
-    if(req.method !== "POST") return res.json({ok:false})
-    const {key} = req.body
-    if(!key) return res.json({ok:false,msg:"卡密不能为空"})
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*")
+  try {
+    if (req.method !== 'POST') return res.json({ ok: false })
+    const { key } = req.body
     const md5Key = encryptKey(key)
 
-    // 修复读取黑名单
+    // 读取黑名单，非数组强制转为空数组
     let blackList = await redis.get('usedBlackList')
     blackList = Array.isArray(blackList) ? blackList : []
 
-    if(blackList.includes(md5Key)){
-        return res.json({ok:false,msg:"该卡密已作废，无法再次激活"})
+    if (blackList.includes(md5Key)) {
+      return res.json({ ok: false, msg: "卡密已拉黑" })
     }
-    const expireTime = await redis.get(`active:${md5Key}`)
+
+    const expireStr = await redis.get(`active:${md5Key}`)
     const now = new Date()
-    if(expireTime){
-        const endDate = new Date(expireTime)
-        if(endDate <= now){
-            blackList.push(md5Key)
-            await redis.set('usedBlackList',blackList)
-            await redis.del(`active:${md5Key}`)
-            return res.json({ok:false,msg:"卡密已过期作废"})
-        }
-        const leftDay = Math.ceil((endDate - now)/(1000*3600*24))
-        return res.json({ok:true,leftDay,expire:endDate.toLocaleString()})
+    if (expireStr) {
+      const end = new Date(expireStr)
+      if (end <= now) {
+        blackList.push(md5Key)
+        await redis.set('usedBlackList', blackList)
+        await redis.del(`active:${md5Key}`)
+        return res.json({ ok: false, msg: "已过期" })
+      }
+      return res.json({ ok: true })
     }
 
-    let validDay = 0
-    for(let [rawKey,day] of keyPool){
-        if(encryptKey(rawKey) === md5Key){
-            validDay = day;break
-        }
+    // 匹配卡密
+    let day = 0
+    for (let [rawKey, d] of keyPool) {
+      if (encryptKey(rawKey) === md5Key) day = d
     }
-    if(validDay === 0) return res.json({ok:false,msg:"无效卡密"})
+    if (day === 0) return res.json({ ok: false, msg: "无效卡密" })
 
-    const finalExpire = new Date()
-    finalExpire.setDate(finalExpire.getDate()+validDay)
-    await redis.set(`active:${md5Key}`,finalExpire.toString())
+    // 写入有效期+黑名单
+    let endTime = new Date()
+    endTime.setDate(endTime.getDate() + day)
+    await redis.set(`active:${md5Key}`, endTime.toString())
     blackList.push(md5Key)
-    await redis.set('usedBlackList',blackList)
+    await redis.set('usedBlackList', blackList)
 
-    return res.json({ok:true,leftDay:validDay,expire:finalExpire.toLocaleString(),msg:"激活成功"})
+    return res.json({ ok: true })
+  } catch (err) {
+    console.log(err)
+    return res.json({ ok: false })
+  }
 }
