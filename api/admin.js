@@ -14,10 +14,40 @@ function encryptKey(str){
 
 export default async (req,res)=>{
     res.setHeader("Access-Control-Allow-Origin","*")
-    //GET访问页面
-    if(req.method === "GET"){
-        //前端HTML页面
-        const html = `
+    const apiPath = "/api/admin?data=1"
+    //POST接口：增卡/续时/封禁
+    if(req.method === "POST"){
+        const {type,key,day,newDay}=req.body
+        if(type==='create'){
+            const ranKey = Math.random().toString(36).slice(2)+Date.now().toString(36)
+            global.keyPool.push([ranKey,Number(day)])
+            return res.json({code:ranKey})
+        }
+        if(type==='addTime'){
+            const h=encryptKey(key)
+            if(global.activeKey[h]){
+                let t=new Date(global.activeKey[h])
+                t.setDate(t.getDate()+Number(newDay))
+                global.activeKey[h]=t
+            }
+            return res.json({ok:true})
+        }
+        if(type==='ban'){
+            const h=encryptKey(key)
+            if(!global.banList.includes(h)) global.banList.push(h)
+            return res.json({ok:true})
+        }
+    }
+    //数据查询接口
+    if(req.query.data === '1'){
+        const activeArr=[]
+        for(let hash in global.activeKey){
+            activeArr.push({hash,end:global.activeKey[hash],isBan:global.banList.includes(hash)})
+        }
+        return res.json({pool:global.keyPool,active:activeArr,ban:global.banList})
+    }
+    //返回管理页面HTML
+    const html = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -46,7 +76,7 @@ export default async (req,res)=>{
         <div id="activeList"></div>
     </div>
 <script>
-const apiUrl = ""
+const apiUrl = "${apiPath}"
 async function loadData(){
     let res=await fetch(apiUrl)
     let d=await res.json()
@@ -91,40 +121,6 @@ window.onload=loadData
 </script>
 </body>
 </html>`
-        //如果是查询数据接口
-        const {query}=req
-        if(query?.data==='1'){
-            const activeArr=[]
-            for(let hash in global.activeKey){
-                activeArr.push({hash,end:global.activeKey[hash],isBan:global.banList.includes(hash)})
-            }
-            return res.json({pool:global.keyPool,active:activeArr,ban:global.banList})
-        }
-        //返回管理页面
-        res.setHeader('Content-Type','text/html')
-        return res.end(html)
-    }
-    //POST：生成/加时/封禁
-    if(req.method==="POST"){
-        const {type,key,day,newDay}=req.body
-        if(type==='create'){
-            const ranKey = Math.random().toString(36).slice(2)+Date.now().toString(36)
-            global.keyPool.push([ranKey,Number(day)])
-            return res.json({code:ranKey})
-        }
-        if(type==='addTime'){
-            const h=encryptKey(key)
-            if(global.activeKey[h]){
-                let t=new Date(global.activeKey[h])
-                t.setDate(t.getDate()+Number(newDay))
-                global.activeKey[h]=t
-            }
-            return res.json({ok:true})
-        }
-        if(type==='ban'){
-            const h=encryptKey(key)
-            if(!global.banList.includes(h)) global.banList.push(h)
-            return res.json({ok:true})
-        }
-    }
+    res.setHeader('Content-Type','text/html;charset=utf-8')
+    return res.end(html)
 }
