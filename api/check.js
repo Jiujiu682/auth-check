@@ -26,6 +26,8 @@ export default async (req,res)=>{
     if(!key) return res.json({ok:false})
     //前端传入明文→后端加密成密文
     const md5k = encryptKey(key)
+    //封禁拦截
+if(global.banList&&global.banList.includes(md5k)) return res.json({ok:false})
     //先查是否已经激活过
     if(activeKey[md5k]){
         return res.json({ok:new Date(activeKey[md5k])>new Date()})
