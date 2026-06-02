@@ -2,9 +2,9 @@ const crypto = require('crypto')
 
 //发卡密：["卡密","天数"]
 const keyPool = [
-  ["gggggggggg333",30],
-  ["mi222",90],
-  ["mi333",365]
+  ["gggggggggg333",1],
+  ["hubeufuisfi1661",1],
+  ["fgbgkrnsjng1919",1]
 ]
 //已激活（这里自动存加密密文，不用手动改）
 let activeKey = {}
