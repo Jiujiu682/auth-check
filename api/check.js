@@ -1,50 +1,59 @@
-//引入加密模块
-const crypto = require('crypto')
-//存放已激活用户密文和到期时间
-let activeKey = {}
-//加密盐值，客户端和服务端统一
+import { createClient } from '@upstash/redis'
+import crypto from 'crypto'
+
+// 替换成你页面里的UPSTASH_REDIS_REST_URL、UPSTASH_REDIS_REST_TOKEN
+const redis = createClient({
+  url:"填入你的KV_REST_API_URL",
+  token:"填入你的KV_REST_API_TOKEN"
+})
+
 const SECRET_SALT = "sk5689xd2026#1t"
-//卡密池：【原始明文卡密,可用天数】，以后入库只存密文
 const keyPool = [
-    ["jjjjj520",1],
-    ["hubeuufuis11661",1],
+    ["jjjj520",1],
+    ["hubei2025",1],
     ["fgbgkrnsjng1919",1],
 ]
-//明文转加密密文
-function encryptKey(str){
-    return crypto.createHmac('md5',SECRET_SALT).update(str).digest('hex')
-}
-//接口入口
+
+const encryptKey = (str)=>crypto.createHmac('md5',SECRET_SALT).update(str).digest('hex')
+
 export default async (req,res)=>{
-    //跨域放行
     res.setHeader("Access-Control-Allow-Origin","*")
-    //只接收POST请求
     if(req.method !== "POST") return res.json({ok:false})
-    //获取前端传来的卡密（前端始终明文）
-    const {key}=req.body
-    //卡密为空直接返回失败
-    if(!key) return res.json({ok:false})
-    //前端传入明文→后端加密成密文
-    const md5k = encryptKey(key)
-    //先查是否已经激活过
-    if(activeKey[md5k]){
-        return res.json({ok:new Date(activeKey[md5k])>new Date()})
+    const {key} = req.body
+    if(!key) return res.json({ok:false,msg:"卡密不能为空"})
+    const md5Key = encryptKey(key)
+
+    const blackList = await redis.get('usedBlackList') || []
+    if(blackList.includes(md5Key)){
+        return res.json({ok:false,msg:"该卡密已作废，无法再次激活"})
     }
-    let useDay=0
-    //循环卡密池：把池子里明文卡密加密后和前端密文比对
-    for(let i=0;i<keyPool.length;i++){
-        let raw=keyPool[i][0]
-        let d=keyPool[i][1]
-        //池子明文加密，和前端传的加密值匹配
-        if(encryptKey(raw) === md5k){
-            useDay=d
-            break
+    const expireTime = await redis.get(`active:${md5Key}`)
+    const now = new Date()
+    if(expireTime){
+        const endDate = new Date(expireTime)
+        if(endDate <= now){
+            blackList.push(md5Key)
+            await redis.set('usedBlackList',blackList)
+            await redis.del(`active:${md5Key}`)
+            return res.json({ok:false,msg:"卡密已过期作废"})
+        }
+        const leftDay = Math.ceil((endDate - now)/(1000*3600*24))
+        return res.json({ok:true,leftDay,expire:endDate.toLocaleString()})
+    }
+
+    let validDay = 0
+    for(let [rawKey,day] of keyPool){
+        if(encryptKey(rawKey) === md5Key){
+            validDay = day;break
         }
     }
-    if(useDay===0) return res.json({ok:false})
-    //激活后：key只存密文进activeKey，不再存原始明文
-    const expire = new Date()
-    expire.setDate(expire.getDate()+useDay)
-    activeKey[md5k]=expire
-    return res.json({ok:true})
+    if(validDay === 0) return res.json({ok:false,msg:"无效卡密"})
+
+    const finalExpire = new Date()
+    finalExpire.setDate(finalExpire.getDate()+validDay)
+    await redis.set(`active:${md5Key}`,finalExpire.toString())
+    blackList.push(md5Key)
+    await redis.set('usedBlackList',blackList)
+
+    return res.json({ok:true,leftDay:validDay,expire:finalExpire.toLocaleString(),msg:"激活成功"})
 }
