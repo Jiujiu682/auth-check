@@ -1,50 +1,65 @@
-import { createClient } from '@upstash/redis'
-import crypto from 'crypto'
-
-// 这里务必完整复制页面REST里的整条Token，无空格、无换行
-const redis = createClient({
-  url: "https://peaceful-wildcat-141681.upstash.io",
-  token: "gQAAAAAAAilxAAIgcDJhZjhkMmExMWIyODI0ZTA2YTBhMDU2ZDNlZDFjZWM0ZQ"
-})
+const REST_URL = "https://peaceful-wildcat-141681.upstash.io"
+const REST_TOKEN = "gQAAAAAAAilxAAIgcDJhZjhkMmExMWIyODI0ZTA2YTBhMDU2ZDNlZDFjZWM0ZQ"
+const HEADER_AUTH = `Bearer ${REST_TOKEN}`
 const SECRET_SALT = "sk5689xd2026#1t"
-const keyPool = [["ceshi123",1]]
-const encryptKey = (str)=>crypto.createHmac('md5',SECRET_SALT).update(str).digest('hex')
+//测试卡密：ceshi123，1天有效期
+const keyPool = [["ceshi123", 1]]
+import crypto from "crypto"
 
-export default async function handler(req,res){
-  res.setHeader("Access-Control-Allow-Origin","*")
-  try{
-    if(req.method !== "POST") return res.json({ok:false})
-    const {key}=req.body
-    const md5Key = encryptKey(key)
-    let blackList = await redis.get('usedBlackList')
-    blackList = Array.isArray(blackList)?blackList:[]
+//MD5加密卡密
+const encryptKey = (str) => crypto.createHmac("md5", SECRET_SALT).update(str).digest("hex")
 
-    if(blackList.includes(md5Key)) return res.json({ok:false})
-    const expire = await redis.get(`active:${md5Key}`)
+//封装Redis http指令
+async function runRedis(cmdStr) {
+  const resp = await fetch(`${REST_URL}/${cmdStr}`, {
+    headers: { Authorization: HEADER_AUTH }
+  })
+  return await resp.json()
+}
+
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*")
+  try {
+    if (req.method !== "POST") return res.json({ ok: false })
+    const { key } = req.body
+    const encryptStr = encryptKey(key)
+
+    //读取黑名单
+    const blackRes = await runRedis("get usedBlackList")
+    let blackList = Array.isArray(blackRes.result) ? blackRes.result : []
+    if (blackList.includes(encryptStr)) return res.json({ ok: false })
+
+    //读取过期时间
+    const expireRes = await runRedis(`get active:${encryptStr}`)
     const now = new Date()
-    if(expire){
-      const end = new Date(expire)
-      if(end <= now){
-        blackList.push(md5Key)
-        await redis.set('usedBlackList',blackList)
-        await redis.del(`active:${md5Key}`)
-        return res.json({ok:false})
+    if (expireRes.result) {
+      const endTime = new Date(expireRes.result)
+      if (endTime <= now) {
+        blackList.push(encryptStr)
+        await runRedis(`set usedBlackList ${JSON.stringify(blackList)}`)
+        await runRedis(`del active:${encryptStr}`)
+        return res.json({ ok: false })
       }
-      return res.json({ok:true})
+      return res.json({ ok: true })
     }
-    let day=0
-    for(let [k,d] of keyPool){
-      if(encryptKey(k)===md5Key) day=d
+
+    //匹配卡密天数
+    let validDay = 0
+    for (let [k, d] of keyPool) {
+      if (encryptKey(k) === encryptStr) validDay = d
     }
-    if(day===0) return res.json({ok:false})
+    if (validDay === 0) return res.json({ ok: false })
+
+    //写入有效期
     let endDate = new Date()
-    endDate.setDate(endDate.getDate()+day)
-    await redis.set(`active:${md5Key}`,endDate.toString())
-    blackList.push(md5Key)
-    await redis.set('usedBlackList',blackList)
-    return res.json({ok:true})
-  }catch(err){
-    // 连接失败返回提示，不再500
-    return res.json({ok:false,info:"Redis连接出错，密钥错误"})
+    endDate.setDate(endDate.getDate() + validDay)
+    await runRedis(`set active:${encryptStr} "${endDate}"`)
+    blackList.push(encryptStr)
+    await runRedis(`set usedBlackList ${JSON.stringify(blackList)}`)
+
+    return res.json({ ok: true })
+  } catch (err) {
+    //报错统一返回false，不再500页面
+    return res.json({ ok: false })
   }
 }
