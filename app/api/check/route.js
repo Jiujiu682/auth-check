@@ -10,19 +10,10 @@ const keyPool = [["ceshi123", 1]];
 const encryptKey = (str) => crypto.createHmac("md5", SECRET_SALT).update(str).digest("hex");
 
 async function runRedis(cmd) {
-  try {
-    const res = await fetch(`${REST_URL}/${cmd}`, {
-      headers: { Authorization: HEADER_AUTH },
-    });
-    return res.json();
-  } catch {
-    return { result: null };
-  }
-}
-
-// 解决浏览器访问404
-export async function GET() {
-  return NextResponse.json({ status: "接口正常" });
+  const res = await fetch(`${REST_URL}/${cmd}`, {
+    headers: { Authorization: HEADER_AUTH },
+  });
+  return res.json();
 }
 
 export async function POST(req) {
@@ -55,9 +46,6 @@ export async function POST(req) {
 
   let expireDay = new Date();
   expireDay.setDate(expireDay.getDate() + days);
-  await runRedis(`set active:${mdKey} "${expireDay}"`);
-  blackList.push(mdKey);
-  await runRedis(`set usedBlackList ${JSON.stringify(blackList)}`);
-
+  await runRedis(`set active:${mdKey} ${expireDay}`);
   return NextResponse.json({ ok: true });
 }
