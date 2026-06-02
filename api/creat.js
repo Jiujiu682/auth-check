@@ -1,5 +1,10 @@
 const { webcrypto } = require('node:crypto');
+const fs = require('fs');
+const path = require('path');
 const SEC = 'abc1234567890key';
+const dbFile = path.join(__dirname, 'db.json');
+const loadDB = ()=>JSON.parse(fs.readFileSync(dbFile,'utf8'));
+const saveDB = d=>fs.writeFileSync(dbFile,JSON.stringify(d,null,2));
 
 async function getKey(){
   return webcrypto.subtle.importKey('raw',Buffer.from(SEC),{name:'AES-CBC'},false,['encrypt','decrypt'])
@@ -20,34 +25,24 @@ async function aesEnc(obj){
   return Buffer.concat([iv,Buffer.from(raw)]).toString('base64');
 }
 
-//随机生成32位卡密
-function randCode(len=32){
-  const s='ABCDEFGHIJKLMNOPQRSTabcdefghijklmnopq0123456789';
-  let res=''
-  for(let i=0;i<len;i++) res+=s[Math.floor(Math.random()*s.length)]
-  return res
+//生成32位卡密
+const makeCode=()=>{
+  const c='ABCDEFGHIJKLMNOPQRSTabcdefghijklmnopq1234567890';
+  let s='';for(let i=0;i<32;i++)s+=c[Math.floor(Math.random()*c.length)];
+  return s;
 }
 
 module.exports=async(req,res)=>{
-  //入参：num生成数量，type卡类型，day有效天数
+  let db = loadDB();
   const {num,type,day}=await aesDec(req.body.payload);
   const now=new Date().toLocaleString();
-  const newList=[]
+  const arr=[];
   for(let i=0;i<num;i++){
-    newList.push({
-      code:randCode(),
-      type:type,
-      useTime:"未使用",
-      expire:"未生效",
-      ban:"正常",
-      remark:"",
-      day:day,
-      left:0,
-      admin:"后台生成",
-      create:now,
-      last:""
+    arr.push({
+      code:makeCode(),type,useTime:"未使用",expire:"未生效",ban:"正常",remark:"",day,left:0,admin:"后台生成",create:now,last:""
     })
   }
-  global.keyDB.push(...newList);
-  res.json({payload:await aesEnc({list:newList,msg:`成功生成${num}张卡密`})})
+  db.push(...arr);
+  saveDB(db);
+  res.json({payload:await aesEnc({list:arr,msg:`生成${num}张卡密`})});
 }
