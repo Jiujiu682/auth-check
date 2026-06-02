@@ -3,7 +3,7 @@ const REST_TOKEN = "gQAAAAAAilxAAIgcDJhZjhkMmExMWIyODI0ZTA2YTBhMDU2ZDNlZDFjZWM0Z
 const HEADER_AUTH = `Bearer ${REST_TOKEN}`
 const SECRET_SALT = "sk5689xd2026#1t"
 //可用卡密：[卡密字符,有效天数]
-const keyPool = [["ceshi123", 1]]
+const keyPool = [["ceshi129", 1]]
 import crypto from "crypto"
 
 //卡密HMAC加密
