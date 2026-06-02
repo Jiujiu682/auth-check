@@ -1,60 +1,53 @@
+//引入加密模块
 const crypto = require('crypto')
-const fs = require('fs')
-const path = require('path')
-
-const KEY_FILE = path.resolve('./active.json')
-const POOL_FILE = path.resolve('./keypool.json')
-
-let keyPool = [
-    ["jjjjj555",1],
+//存放已激活用户密文和到期时间
+let activeKey = {}
+//加密盐值，客户端和服务端统一
+const SECRET_SALT = "sk5689xd2026#1t"
+//卡密池：[明文卡密,可用天数]
+const keyPool = [
+    ["gegggegggg333",1],
     ["hubeufuisfi1661",1],
     ["fgbgkrnsjng1919",1]
 ]
-if(fs.existsSync(POOL_FILE)){
-  try{
-    keyPool = JSON.parse(fs.readFileSync(POOL_FILE,'utf8'))
-  }catch{}
-}
-const savePool=()=>fs.writeFileSync(POOL_FILE,JSON.stringify(keyPool))
-
-let activeKey = {}
-const SECRET_SALT = "sk5689xd2026#1t"
-if(fs.existsSync(KEY_FILE)){
-    try{activeKey = JSON.parse(fs.readFileSync(KEY_FILE,'utf8'))}
-    catch{}
-}
-const saveActive=()=>fs.writeFileSync(KEY_FILE,JSON.stringify(activeKey))
-
+//明文转加密密文
 function encryptKey(str){
     return crypto.createHmac('md5',SECRET_SALT).update(str).digest('hex')
 }
-
+//接口入口
 export default async (req,res)=>{
+    //跨域放行
     res.setHeader("Access-Control-Allow-Origin","*")
+    //只接收POST请求
     if(req.method !== "POST") return res.json({ok:false})
+    //获取前端传来的卡密
     const {key}=req.body
+    //卡密为空直接返回失败
     if(!key) return res.json({ok:false})
-
+    //明文加密
     const md5k = encryptKey(key)
+    //已激活过，校验有效期
     if(activeKey[md5k]){
-        const expire = new Date(activeKey[md5k])
-        return res.json({ok:expire>new Date()})
+        return res.json({ok:new Date(activeKey[md5k])>new Date()})
     }
-
     let useDay=0
-    for(let item of keyPool){
-        const [raw,day] = item
-        if(raw === key && Number(day)>0){
-            useDay = day
-            item[1] = Number(day)-1
-            savePool()
-            const expire = new Date()
-            expire.setDate(expire.getDate()+useDay)
-            activeKey[md5k] = expire.getTime()
-            saveActive()
+    //遍历卡密池匹配
+    for(let i=0;i<keyPool.length;i++){
+        let raw=keyPool[i][0]
+        let d=keyPool[i][1]
+        //卡密一致且剩余天数大于0
+        if(raw===key&&d>0){
+            useDay=d
+            //该卡密次数-1
+            keyPool[i][1]-=1
+            //计算到期时间
+            let exp=new Date()
+            exp.setDate(exp.getDate()+useDay)
+            //保存加密密钥+到期时间戳
+            activeKey[md5k]=exp.getTime()
             break
         }
     }
-    if(useDay===0) return res.json({ok:false})
-    return res.json({ok:true})
+    //大于0激活成功
+    return res.json({ok:useDay>0})
 }
