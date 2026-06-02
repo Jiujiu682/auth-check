@@ -2,255 +2,163 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>管理后台</title>
+<title>卡密管理</title>
+<script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
-.layoutWrap{display:flex;min-height:100vh;background:#f8fafc}
-.sidebar{width:220px;background:#1e293b;color:#fff;display:flex;flex-direction:column;padding:20px 0}
-.menuItem{padding:12px 22px;font-size:14px;color:#cbd5e1;cursor:pointer}
-.menuItemActive{padding:12px 22px;font-size:14px;background:#2563eb;color:#fff}
-.mainContent{flex:1;padding:24px}
-.searchCard{background:#fff;border-radius:6px;padding:18px;box-shadow:0 1px 3px #e2e8f0;margin-bottom:16px}
-.searchTop{display:flex;justify-content:space-between;margin-bottom:16px}
-.btnGray{padding:5px 12px;border:1px solid #cbd5e1;background:#fff;border-radius:4px;margin-left:6px;cursor:pointer}
-.searchRow{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
-.searchItem{display:flex;align-items:center;gap:6px}
-.searchItem label{font-size:13px;color:#475569;white-space:nowrap}
-.inp{border:1px solid #cbd5e1;padding:5px 8px;border-radius:4px;width:130px}
-.sel{border:1px solid #cbd5e1;padding:5px 8px;border-radius:4px;width:110px}
-.btnPrimary{background:#2563eb;color:#fff;border:none;padding:5px 14px;border-radius:4px;margin-left:6px;cursor:pointer}
-.tableCard{background:#fff;border-radius:6px;padding:18px;box-shadow:0 1px 3px #e2e8f0}
-.tableHeadBar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.optBtnWrap{margin-bottom:12px;display:flex;gap:8px}
-.btnOpt{border:1px solid #cbd5e1;padding:5px 12px;background:#fff;border-radius:4px;cursor:pointer}
-.btnBan{border:1px solid #f59e0b;color:#f59e0b;padding:5px 12px;background:#fff;border-radius:4px;cursor:pointer}
-.btnDel{border:1px solid #ef4444;color:#ef4444;padding:5px 12px;background:#fff;border-radius:4px;cursor:pointer}
-.tableWrap{overflow-x:auto}
-.dataTable{width:100%;border-collapse:collapse;font-size:13px}
-.dataTable th{background:#f1f5f9;padding:9px 6px;text-align:left;border:1px solid #e2e8f0;color:#334155}
-.dataTable td{padding:9px 6px;border:1px solid #e2e8f0;color:#475569}
-.dataTable tbody tr:nth-child(even){background:#f8fafc}
-.tagNormal{padding:2px 6px;background:#dcfce7;color:#16a34a;border-radius:3px}
+.wrap{display:flex;min-height:100vh}
+.sidebar{width:170px;background:#222838;padding-top:25px}
+.menu{padding:12px 20px;color:#e2e8f0;cursor:pointer}
+.menu:hover{background:#333a4e}
+.main{flex:1;padding:20px;background:#f5f7fa}
+.search-bar{background:#fff;padding:15px;border-radius:5px;margin-bottom:15px}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+input,select{padding:6px 8px;border:1px solid #ccc;border-radius:3px}
+.btns button{padding:6px 12px;border-radius:3px;margin-right:6px;cursor:pointer;border:1px solid #ccc;background:#fff}
+.btns .ban{color:#f39c12;border-color:#f39c12}
+.btns .unban{color:#27ae60;border-color:#27ae60}
+.btns .del{color:#e74c3c;border-color:#e74c3c}
+table{width:100%;border-collapse:collapse;background:#fff}
+td,th{border:1px solid #ddd;padding:8px;font-size:13px}
 </style>
-<!--引入crypto-js用于AES加密-->
-<script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js"></script>
 </head>
 <body>
-<div class="layoutWrap">
-<aside class="sidebar">
-  <div class="sideMenu">
-    <div class="menuItem">首页</div>
-    <div class="menuItemActive">许可证列表</div>
-    <div class="menuItem">许可证生成</div>
+<div class="wrap">
+  <div class="sidebar">
+    <div class="menu">卡密查询</div>
+    <div class="menu">许可证生成</div>
   </div>
-</aside>
-
-<main class="mainContent">
-  <div class="searchCard">
-    <div class="searchTop">
-      <span>搜索</span>
-      <div>
-        <button class="btnGray">普通搜索</button>
-        <button class="btnGray">高级搜索</button>
+  <div class="main">
+    <div class="search-bar">
+      <div class="row">
+        <input id="keyCode" placeholder="卡密关键词">
+        <select id="useStatus">
+          <option value="">全部使用状态</option>
+          <option value="未使用">未使用</option>
+          <option value="已使用">已使用</option>
+        </select>
+        <select id="banStatus">
+          <option value="">全部封禁状态</option>
+          <option value="正常">正常</option>
+          <option value="封禁">封禁</option>
+        </select>
+        <input type="date" id="startDay">
+        <input type="date" id="endDay">
+        <button id="searchBtn">搜索</button>
+        <button id="resetBtn">重置</button>
+      </div>
+      <div class="btns">
+        <button class="ban" id="banBtn">批量封禁</button>
+        <button class="unban" id="unBanBtn">批量解禁</button>
+        <button class="del" id="delBtn">批量删除</button>
       </div>
     </div>
-    <div class="searchRow">
-      <div class="searchItem">
-        <label>许可证序号</label>
-        <input class="inp" id="keyCode" placeholder="可输入多行">
-      </div>
-      <div class="searchItem">
-        <label>使用状态</label>
-        <select class="sel" id="useStatus">
-          <option>全部</option><option>已使用</option><option>未使用</option>
-        </select>
-      </div>
-      <div class="searchItem">
-        <label>过期状态</label>
-        <select class="sel" id="expStatus">
-          <option>全部</option><option>已过期</option><option>未生效</option>
-        </select>
-      </div>
-      <div class="searchItem">
-        <label>封禁状态</label>
-        <select class="sel" id="banStatus">
-          <option>全部</option><option>正常</option><option>封禁</option>
-        </select>
-      </div>
-      <div class="searchItem">
-        <label>生成时间</label>
-        <input class="inp" type="date" id="startDay"><span>~</span><input class="inp" type="date" id="endDay">
-      </div>
-      <div>
-        <button class="btnGray" id="resetBtn">重置</button>
-        <button class="btnPrimary" id="searchBtn">搜索</button>
-      </div>
-    </div>
+    <table>
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="allCheck"></th>
+          <th>卡密</th>
+          <th>类型</th>
+          <th>使用状态</th>
+          <th>封禁状态</th>
+          <th>有效天数</th>
+          <th>生成时间</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
   </div>
-
-  <div class="tableCard">
-    <div class="tableHeadBar">
-      <span>许可证列表</span>
-      <div><input type="checkbox" id="allCheck">全选 <span id="selCount">未选择</span></div>
-      <div>
-        <select class="sel">
-          <option>全部许可证</option>
-        </select>
-      </div>
-    </div>
-    <div class="optBtnWrap">
-      <button class="btnOpt" id="importBtn">导入</button>
-      <button class="btnOpt" id="exportBtn">导出</button>
-      <button class="btnOpt" id="editBtn">编辑</button>
-      <button class="btnOpt" id="unBanBtn">解禁</button>
-      <button class="btnBan" id="banBtn">封禁</button>
-      <button class="btnDel" id="delBtn">删除</button>
-    </div>
-    <div class="tableWrap">
-      <table class="dataTable" id="keyTable">
-        <thead>
-          <tr>
-            <th><input type="checkbox"></th>
-            <th>许可证序号</th>
-            <th>许可证类型</th>
-            <th>使用时间</th>
-            <th>过期时间</th>
-            <th>封禁状态</th>
-            <th>备注</th>
-            <th>有效期</th>
-            <th>剩余点数</th>
-            <th>管理员</th>
-            <th>生成时间</th>
-            <th>最后登录时间</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </div>
-</main>
 </div>
 
 <script>
-// 前后端统一密钥（前后一致才能加解密）
 const SECRET_KEY = "abc1234567890key";
+function aesEncrypt(data){return CryptoJS.AES.encrypt(JSON.stringify(data),SECRET_KEY).toString()}
+function aesDecrypt(str){return JSON.parse(CryptoJS.AES.decrypt(str,SECRET_KEY).toString(CryptoJS.enc.Utf8))}
+let selectArr=[];
+const allCheck=document.getElementById('allCheck');
+const tableBody=document.getElementById('tableBody');
+const searchBtn=document.getElementById('searchBtn');
+const resetBtn=document.getElementById('resetBtn');
+const banBtn=document.getElementById('banBtn');
+const unBanBtn=document.getElementById('unBanBtn');
+const delBtn=document.getElementById('delBtn');
+const menu=document.querySelectorAll('.menu');
 
-//AES加密
-function aesEncrypt(data){
-  return CryptoJS.AES.encrypt(JSON.stringify(data),SECRET_KEY).toString()
-}
-//AES解密
-function aesDecrypt(str){
-  let dec = CryptoJS.AES.decrypt(str,SECRET_KEY);
-  return JSON.parse(dec.toString(CryptoJS.enc.Utf8))
-}
-
-let selectedKeys = [];
-const allCheck = document.getElementById('allCheck');
-const tableBody = document.querySelector('#keyTable tbody');
-const selCount = document.getElementById('selCount');
-
-function refreshSelectNum(){
-  selCount.innerText = selectedKeys.length>0 ? `已选${selectedKeys.length}条` : '未选择';
-}
-
-allCheck.onchange = ()=>{
-  selectedKeys = [];
-  const items = tableBody.querySelectorAll('tr input[type=checkbox]');
-  items.forEach(ck=>{
-    ck.checked = allCheck.checked;
-    if(ck.checked) selectedKeys.push(ck.value);
-  })
-  refreshSelectNum();
-}
-
-function bindTrCheck(){
-  const trCk = tableBody.querySelectorAll('tr input[type=checkbox]');
-  trCk.forEach(ck=>{
-    ck.onchange = ()=>{
-      let val = ck.value;
-      if(ck.checked){
-        if(!selectedKeys.includes(val)) selectedKeys.push(val);
-      }else{
-        selectedKeys = selectedKeys.filter(i=>i!==val)
-      }
-      refreshSelectNum();
-      allCheck.checked = selectedKeys.length===trCk.length && trCk.length>0;
-    }
-  })
-}
-
-//加密请求
 async function apiPost(url,data){
-  let send = aesEncrypt(data);
-  let res = await fetch('/api/'+url,{
+  const res=await fetch(`/api/${url}`,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({payload:send})
+    body:JSON.stringify({payload:aesEncrypt(data)})
   })
-  let raw = await res.json();
-  return aesDecrypt(raw.payload)
+  const json=await res.json();
+  return aesDecrypt(json.payload);
 }
 
-document.getElementById('searchBtn').onclick = async ()=>{
-  const param = {
+function loadList(){
+  selectArr=[];
+  const param={
     key:document.getElementById('keyCode').value,
     use:document.getElementById('useStatus').value,
-    expire:document.getElementById('expStatus').value,
     ban:document.getElementById('banStatus').value,
     s:document.getElementById('startDay').value,
     e:document.getElementById('endDay').value
   }
-  const list = await apiPost('check',param)
-  tableBody.innerHTML = '';
-  selectedKeys=[];refreshSelectNum();
-  if(!Array.isArray(list)) return;
-  list.forEach(item=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><input type="checkbox" value="${item.code}"></td>
+  apiPost('check',param).then(list=>{
+    tableBody.innerHTML='';
+    list.forEach(item=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`
+      <td><input class="ck" value="${item.code}" type="checkbox"></td>
       <td>${item.code}</td>
       <td>${item.type}</td>
-      <td>${item.useTime||'未使用'}</td>
-      <td>${item.expire||'未生效'}</td>
-      <td><span class="tagNormal">${item.ban||'正常'}</span></td>
-      <td>${item.remark||''}</td>
-      <td>${item.day}天</td>
-      <td>${item.left||0}</td>
-      <td>${item.admin||''}</td>
-      <td>${item.create||''}</td>
-      <td>${item.last||''}</td>
-    `
-    tableBody.appendChild(tr);
+      <td>${item.useTime}</td>
+      <td>${item.ban}</td>
+      <td>${item.day}</td>
+      <td>${item.create}</td>
+      `
+      tableBody.appendChild(tr);
+    })
+    document.querySelectorAll('.ck').forEach(cb=>{
+      cb.onchange=()=>{
+        if(cb.checked)selectArr.push(cb.value)
+        else selectArr=selectArr.filter(v=>v!==cb.value)
+      }
+    })
   })
-  bindTrCheck();
 }
 
-document.getElementById('resetBtn').onclick = ()=>{
-  document.querySelectorAll('.inp,.sel').forEach(d=>d.value='')
-  tableBody.innerHTML='';
-  selectedKeys=[];refreshSelectNum();
+allCheck.onchange=()=>{
+  document.querySelectorAll('.ck').forEach(c=>c.checked=allCheck.checked);
+  if(allCheck.checked){
+    selectArr=[];
+    document.querySelectorAll('.ck').forEach(c=>selectArr.push(c.value))
+  }else selectArr=[];
 }
-
-document.getElementById('banBtn').onclick = async ()=>{
-  if(selectedKeys.length===0) return alert('先勾选密钥');
-  await apiPost('ban',{keys:selectedKeys})
-  alert('操作成功');document.getElementById('searchBtn').click()
+searchBtn.onclick=loadList;
+resetBtn.onclick=()=>{
+  document.querySelectorAll('input,select').forEach(i=>i.value='');
+  tableBody.innerHTML='';selectArr=[];allCheck.checked=false;
 }
-document.getElementById('unBanBtn').onclick = async ()=>{
-  if(selectedKeys.length===0) return alert('先勾选密钥');
-  await apiPost('unban',{keys:selectedKeys})
-  alert('操作成功');document.getElementById('searchBtn').click()
+banBtn.onclick=async()=>{
+  if(!selectArr.length)return alert('勾选卡密');
+  await apiPost('ban',{keys:selectArr});alert('封禁成功');loadList();
 }
-document.getElementById('delBtn').onclick = async ()=>{
-  if(selectedKeys.length===0) return alert('先勾选密钥');
-  if(!confirm('确定删除？'))return;
-  await apiPost('del',{keys:selectedKeys})
-  alert('删除成功');document.getElementById('searchBtn').click()
+unBanBtn.onclick=async()=>{
+  if(!selectArr.length)return alert('勾选卡密');
+  await apiPost('unban',{keys:selectArr});alert('解禁成功');loadList();
 }
-document.getElementById('importBtn').onclick=()=>alert('导入功能')
-document.getElementById('exportBtn').onclick=()=>alert('导出功能')
-document.getElementById('editBtn').onclick=()=>alert('编辑功能')
+delBtn.onclick=async()=>{
+  if(!selectArr.length||!confirm('确认删除？'))return;
+  await apiPost('del',{keys:selectArr});alert('已删除');loadList();
+}
+menu[1].onclick=async()=>{
+  const num=prompt('生成数量');
+  const type=prompt('卡类型：天卡/月卡');
+  const day=prompt('有效天数');
+  if(!num||!type||!day)return;
+  const ret=await apiPost('create',{num:Number(num),type,day:Number(day)});
+  alert(ret.msg);loadList();
+}
 </script>
 </body>
 </html>
