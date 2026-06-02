@@ -4,11 +4,11 @@ const crypto = require('crypto')
 let activeKey = {}
 //加密盐值，客户端和服务端统一
 const SECRET_SALT = "sk5689xd2026#1t"
-//卡密池：[明文卡密,可用天数]
+//卡密池：【原始明文卡密,可用天数】，以后入库只存密文
 const keyPool = [
     ["jjjjj520",1],
-    ["hubeufuisfi1661",1],
-    ["fgbgkrnsjng1919",1]
+    ["hubeuufuis11661",1],
+    ["fgbgkrnsjng1919",1],
 ]
 //明文转加密密文
 function encryptKey(str){
@@ -20,34 +20,31 @@ export default async (req,res)=>{
     res.setHeader("Access-Control-Allow-Origin","*")
     //只接收POST请求
     if(req.method !== "POST") return res.json({ok:false})
-    //获取前端传来的卡密
+    //获取前端传来的卡密（前端始终明文）
     const {key}=req.body
     //卡密为空直接返回失败
     if(!key) return res.json({ok:false})
-    //明文加密
+    //前端传入明文→后端加密成密文
     const md5k = encryptKey(key)
-    //已激活过，校验有效期
+    //先查是否已经激活过
     if(activeKey[md5k]){
         return res.json({ok:new Date(activeKey[md5k])>new Date()})
     }
     let useDay=0
-    //遍历卡密池匹配
+    //循环卡密池：把池子里明文卡密加密后和前端密文比对
     for(let i=0;i<keyPool.length;i++){
         let raw=keyPool[i][0]
         let d=keyPool[i][1]
-        //卡密一致且剩余天数大于0
-        if(raw===key&&d>0){
+        //池子明文加密，和前端传的加密值匹配
+        if(encryptKey(raw) === md5k){
             useDay=d
-            //该卡密次数-1
-            keyPool[i][1]-=1
-            //计算到期时间
-            let exp=new Date()
-            exp.setDate(exp.getDate()+useDay)
-            //保存加密密钥+到期时间戳
-            activeKey[md5k]=exp.getTime()
             break
         }
     }
-    //大于0激活成功
-    return res.json({ok:useDay>0})
+    if(useDay===0) return res.json({ok:false})
+    //激活后：key只存密文进activeKey，不再存原始明文
+    const expire = new Date()
+    expire.setDate(expire.getDate()+useDay)
+    activeKey[md5k]=expire
+    return res.json({ok:true})
 }
