@@ -1,4 +1,3 @@
-export const config = { runtime: "edge" }
 import { createClient } from '@upstash/redis'
 import crypto from 'crypto'
 
