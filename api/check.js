@@ -10,9 +10,12 @@ const keyPool = [["ceshi133", 1],["ceshi135", 1],["ceshi136",1]];
 const encryptKey = (str) => crypto.createHmac("md5", SECRET_SALT).update(str).digest("hex");
 
 async function runRedis(cmd) {
-  const parts = cmd.split(" ");
-  const url = `${REST_URL}/${parts.join("/")}`;
-  const res = await fetch(url, { headers: { Authorization: HEADER_AUTH } });
+  const u = new URL(REST_URL);
+  u.searchParams.set("cmd", cmd);
+  const res = await fetch(u, {
+    headers: { Authorization: HEADER_AUTH },
+    cache: "no-store"
+  });
   return res.json();
 }
 
