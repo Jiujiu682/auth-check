@@ -10,52 +10,45 @@ const keyPool = [["ceshi133", 1],["ceshi135", 1],["ceshi137",1]];
 const encryptKey = (str) => crypto.createHmac("md5", SECRET_SALT).update(str).digest("hex");
 
 async function runRedis(cmd) {
-  // 空格自动转为/，适配Upstash REST接口
-  const urlPath = cmd.split(" ").join("/");
-  const res = await fetch(`${REST_URL}/${urlPath}`, {
-    headers: { Authorization: HEADER_AUTH }
-  })
+  const arr = cmd.split(" ");
+  const path = arr.join("/");
+  const res = await fetch(`${REST_URL}/${path}`, {headers:{Authorization:HEADER_AUTH}})
   return res.json();
 }
 
-export async function GET() {
-  return NextResponse.json({msg:"接口正常，POST传key校验"});
+export async function GET(){
+  return NextResponse.json({msg:"POST传入key使用"});
 }
 
-export async function POST(req) {
-  const body = await req.json();
-  const { key } = body;
-  const mdKey = encryptKey(key);
+export async function POST(req){
+  const {key}=await req.json();
+  const md = encryptKey(key);
 
-  // 读取黑名单
-  let blackData = await runRedis("GET usedBlackList");
-  let blackList = Array.isArray(blackData.result) ? blackData.result : [];
-  if (blackList.includes(mdKey)) return NextResponse.json({ ok: false });
+  let blackRes = await runRedis("GET usedBlackList");
+  let black = Array.isArray(blackRes.result)?blackRes.result:[];
+  if(black.includes(md)) return NextResponse.json({ok:false});
 
-  // 查询是否已激活
-  let activeData = await runRedis(`GET active:${mdKey}`);
+  let activeRes = await runRedis(`GET active:${md}`);
   const now = new Date();
-  if (activeData.result) {
-    let expire = new Date(activeData.result);
-    if (expire <= now) {
-      blackList.push(mdKey);
-      await runRedis(`SET usedBlackList ${JSON.stringify(blackList)}`);
-      await runRedis(`DEL active:${mdKey}`);
-      return NextResponse.json({ ok: false });
+  if(activeRes.result){
+    const exp = new Date(activeRes.result);
+    if(exp<=now){
+      black.push(md);
+      await runRedis(`SET usedBlackList ${JSON.stringify(black)}`);
+      await runRedis(`DEL active:${md}`);
+      return NextResponse.json({ok:false});
     }
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ok:true});
   }
 
-  // 匹配卡密天数
-  let days = 0;
-  for (let [k, d] of keyPool) {
-    if (k === key) days = d;
+  let day = 0;
+  for(let [k,d] of keyPool){
+    if(k===key) day=d;
   }
-  if (!days) return NextResponse.json({ ok: false });
+  if(!day) return NextResponse.json({ok:false});
 
-  // 写入有效期到Redis
-  let expireDay = new Date();
-  expireDay.setDate(expireDay.getDate() + days);
-  await runRedis(`SET active:${mdKey} ${expireDay.toISOString()}`);
-  return NextResponse.json({ ok: true });
+  let expDay = new Date();
+  expDay.setDate(expDay.getDate()+day);
+  await runRedis(`SET active:${md} ${expDay.toISOString()}`);
+  return NextResponse.json({ok:true});
 }
