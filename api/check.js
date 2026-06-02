@@ -1,3 +1,4 @@
+export const config = { runtime: "edge" }
 import { createClient } from '@upstash/redis'
 import crypto from 'crypto'
 
@@ -6,7 +7,6 @@ const redis = createClient({
   token: "gQAAAAAAAbpvAAIgcDExNDY2NDlkYWZlMTA0YzIxYWVkNjlhYmEzNzJmMmM3ZQ"
 })
 const SECRET_SALT = "sk5689xd2026#1t"
-//测试卡密：ceshi123（1天时效），加卡密就在这行添加 ["新卡密",天数],
 const keyPool = [["ceshi123",1]]
 
 const encryptKey = (str)=>crypto.createHmac('md5',SECRET_SALT).update(str).digest('hex')
@@ -50,6 +50,7 @@ export default async function handler(req,res){
 
     return res.json({ok:true})
   }catch(e){
+    console.log(e)
     return res.json({ok:false})
   }
 }
