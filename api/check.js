@@ -9,7 +9,7 @@ const redis = createClient({
 
 const SECRET_SALT = "sk5689xd2026#1t"
 const keyPool = [
-    ["jjjj520",1],
+    ["jjjj5",1],
     ["hubei2025",1],
     ["fgbgkrnsjng1919",1],
 ]
