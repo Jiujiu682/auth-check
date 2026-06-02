@@ -1,52 +1,65 @@
+// pages/api/check.js
 const REST_URL = "https://peaceful-wildcat-141681.upstash.io"
 const REST_TOKEN = "gQAAAAAAilxAAIgcDJhZjhkMmExMWIyODI0ZTA2YTBhMDU2ZDNlZDFjZWM0ZQ"
 const HEADER_AUTH = `Bearer ${REST_TOKEN}`
 const SECRET_SALT = "sk5689xd2026#1t"
-const keyPool = [["ceshi126", 1]]
+// 卡密列表 【卡密，有效天数】
+const keyPool = [["ceshi127", 1]]
 import crypto from "crypto"
-const encryptKey = s=>crypto.createHmac("md5",SECRET_SALT).update(s).digest("hex")
 
-async function runRedis(cmd){
-  const res = await fetch(`${REST_URL}/${cmd}`,{headers:{Authorization:HEADER_AUTH}})
-  return await res.json()
+// MD5加密卡密
+const encryptKey = (str) => crypto.createHmac("md5", SECRET_SALT).update(str).digest("hex")
+
+// 请求Upstash接口
+async function runRedis(cmdStr) {
+  const resp = await fetch(`${REST_URL}/${cmdStr}`, {
+    headers: { Authorization: HEADER_AUTH }
+  })
+  return await resp.json()
 }
 
-export default async function handler(req,res){
-  res.setHeader("Access-Control-Allow-Origin","*")
-  try{
-    const {key} = req.body
-    const md = encryptKey(key)
-    let blackRes = await runRedis("get usedBlackList")
-    let black = Array.isArray(blackRes.result) ? blackRes.result : []
-    if(black.includes(md)) return res.json({ok:false})
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*")
+  try {
+    const { key } = req.body
+    const mdKey = encryptKey(key)
 
-    let activeRes = await runRedis(`get active:${md}`)
+    // 获取已拉黑列表
+    const blackRes = await runRedis("get usedBlackList")
+    const blackList = Array.isArray(blackRes.result) ? blackRes.result : []
+    if (blackList.includes(mdKey)) return res.json({ ok: false })
+
+    // 查询是否在有效期
+    const activeRes = await runRedis(`get active:${mdKey}`)
     const now = new Date()
-    if(activeRes.result){
-      const end = new Date(activeRes.result)
-      if(end <= now){
-        black.push(md)
-        await runRedis(`set usedBlackList ${JSON.stringify(black)}`)
-        await runRedis(`del active:${md}`)
-        return res.json({ok:false})
+    if (activeRes.result) {
+      const expire = new Date(activeRes.result)
+      if (expire <= now) {
+        blackList.push(mdKey)
+        await runRedis(`set usedBlackList ${JSON.stringify(blackList)}`)
+        await runRedis(`del active:${mdKey}`)
+        return res.json({ ok: false })
       }
-      return res.json({ok:true})
+      return res.json({ ok: true })
     }
 
-    let day = 0
-    for(let [pwd,d] of keyPool){
-      if(encryptKey(pwd) === md) day = d
+    // 匹配可用卡密
+    let validDay = 0
+    for (let [pwd, day] of keyPool) {
+      if (encryptKey(pwd) === mdKey) validDay = day
     }
-    if(!day) return res.json({ok:false})
+    if (!validDay) return res.json({ ok: false })
 
-    let endDate = new Date()
-    endDate.setDate(endDate.getDate()+day)
-    await runRedis(`set active:${md} "${endDate}"`)
-    black.push(md)
-    await runRedis(`set usedBlackList ${JSON.stringify(black)}`)
-    return res.json({ok:true})
-  }catch(err){
-    // Redis出错直接返回失败，软件激活弹窗报错
-    return res.json({ok:false})
+    // 写入Redis
+    const expireDate = new Date()
+    expireDate.setDate(expireDate.getDate() + validDay)
+    await runRedis(`set active:${mdKey} "${expireDate}"`)
+    blackList.push(mdKey)
+    await runRedis(`set usedBlackList ${JSON.stringify(blackList)}`)
+
+    return res.json({ ok: true })
+  } catch (err) {
+    // Redis异常直接返回失败
+    return res.json({ ok: false })
   }
 }
