@@ -9,8 +9,10 @@ const keyPool = [["ceshi133", 1],["ceshi135", 1],["ceshi137",1]];
 
 const encryptKey = (str) => crypto.createHmac("md5", SECRET_SALT).update(str).digest("hex");
 
+// 核心修复：空格转斜杠适配Upstash REST
 async function runRedis(cmd) {
-  const res = await fetch(`${REST_URL}/${cmd}`, {
+  const path = cmd.split(" ").join("/");
+  const res = await fetch(`${REST_URL}/${path}`, {
     headers: { Authorization: HEADER_AUTH },
   });
   return res.json();
@@ -25,18 +27,18 @@ export async function POST(req) {
   const { key } = body;
   const mdKey = encryptKey(key);
 
-  let blackData = await runRedis("get usedBlackList");
+  let blackData = await runRedis("GET usedBlackList");
   let blackList = Array.isArray(blackData.result) ? blackData.result : [];
   if (blackList.includes(mdKey)) return NextResponse.json({ ok: false });
 
-  let activeData = await runRedis(`get active:${mdKey}`);
+  let activeData = await runRedis(`GET active:${mdKey}`);
   const now = new Date();
   if (activeData.result) {
     let expire = new Date(activeData.result);
     if (expire <= now) {
       blackList.push(mdKey);
-      await runRedis(`set usedBlackList ${JSON.stringify(blackList)}`);
-      await runRedis(`del active:${mdKey}`);
+      await runRedis(`SET usedBlackList ${JSON.stringify(blackList)}`);
+      await runRedis(`DEL active:${mdKey}`);
       return NextResponse.json({ ok: false });
     }
     return NextResponse.json({ ok: true });
@@ -50,6 +52,6 @@ export async function POST(req) {
 
   let expireDay = new Date();
   expireDay.setDate(expireDay.getDate() + days);
-  await runRedis(`set active:${mdKey} ${expireDay.toISOString()}`);
+  await runRedis(`SET active:${mdKey} ${expireDay.toISOString()}`);
   return NextResponse.json({ ok: true });
 }
