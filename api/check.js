@@ -1,15 +1,15 @@
 import { createClient } from '@upstash/redis'
 import crypto from 'crypto'
 
-// 替换成你页面里的UPSTASH_REDIS_REST_URL、UPSTASH_REDIS_REST_TOKEN
 const redis = createClient({
-  url:"https://trusted-mayfly-113263.upstash.io",
-  token:"gQAAAAAAAbpvAAIgcDExNDY2NDlkYWZlMTA0YzIxYWVkNjlhYmEzNzJmMmM3ZQ"
+  url:"填你的URL",
+  token:"填你的TOKEN"
 })
 
 const SECRET_SALT = "sk5689xd2026#1t"
+//这里填所有可用卡密 [卡密,天数]
 const keyPool = [
-    ["52013145",1],
+    ["5201314a",1],
     ["hubei2025",1],
     ["fgbgkrnsjng1919",1],
 ]
@@ -23,7 +23,10 @@ export default async (req,res)=>{
     if(!key) return res.json({ok:false,msg:"卡密不能为空"})
     const md5Key = encryptKey(key)
 
-    const blackList = await redis.get('usedBlackList') || []
+    // 修复读取黑名单
+    let blackList = await redis.get('usedBlackList')
+    blackList = Array.isArray(blackList) ? blackList : []
+
     if(blackList.includes(md5Key)){
         return res.json({ok:false,msg:"该卡密已作废，无法再次激活"})
     }
