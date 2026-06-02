@@ -2,30 +2,16 @@ const CryptoJS = require("crypto-js");
 const fs = require("fs");
 const path = require("path");
 const KEY = "abc1234567890key";
-const dbPath = path.join(__dirname, "db.json");
+const db = path.join(__dirname, "db.json");
+const load = () => fs.existsSync(db) ? JSON.parse(fs.readFileSync(db, "utf8")) : [];
+const save = d => fs.writeFileSync(db, JSON.stringify(d, null, 2));
+const dec = s => JSON.parse(CryptoJS.AES.decrypt(s, KEY).toString(CryptoJS.enc.Utf8));
+const enc = o => CryptoJS.AES.encrypt(JSON.stringify(o), KEY).toString();
 
-function loadDB() {
-  if (!fs.existsSync(dbPath)) {
-    fs.writeFileSync(dbPath, "[]");
-    return [];
-  }
-  return JSON.parse(fs.readFileSync(dbPath, "utf8"));
-}
-function saveDB(arr) {
-  fs.writeFileSync(dbPath, JSON.stringify(arr, null, 2));
-}
-function decrypt(str) {
-  let raw = CryptoJS.AES.decrypt(str, KEY);
-  return JSON.parse(raw.toString(CryptoJS.enc.Utf8));
-}
-function encrypt(obj) {
-  return CryptoJS.AES.encrypt(JSON.stringify(obj), KEY).toString();
-}
-
-module.exports = async (req, res) => {
-  let db = loadDB();
-  let data = decrypt(req.body.payload);
-  db = db.filter(item => !data.keys.includes(item.code));
-  saveDB(db);
-  res.json({ payload: encrypt({ msg: "ok" }) });
+module.exports = (req, res) => {
+  let arr = load();
+  let d = dec(req.body.payload);
+  arr = arr.filter(x => !d.keys.includes(x.code));
+  save(arr);
+  res.json({ payload: enc({ msg: "ok" }) });
 }
