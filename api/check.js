@@ -1,5 +1,8 @@
 const crypto = require('crypto')
+const fs = require('fs')
+const path = require('path')
 
+const KEY_FILE = path.resolve('./active.json')
 const keyPool = [
     ["gegggegggg333",1],
     ["hubeufuisfi1661",1],
@@ -8,6 +11,18 @@ const keyPool = [
 
 let activeKey = {}
 const SECRET_SALT = "sk5689xd2026#1t"
+
+if(fs.existsSync(KEY_FILE)){
+    try{
+        activeKey = JSON.parse(fs.readFileSync(KEY_FILE,'utf8'))
+    }catch{
+        activeKey = {}
+    }
+}
+
+function saveActive(){
+    fs.writeFileSync(KEY_FILE,JSON.stringify(activeKey))
+}
 
 function encryptKey(str){
     return crypto.createHmac('md5',SECRET_SALT).update(str).digest('hex')
@@ -34,6 +49,7 @@ export default async (req,res)=>{
             let expire = new Date()
             expire.setDate(expire.getDate()+useDay)
             activeKey[md5k] = expire.getTime()
+            saveActive()
             break
         }
     }
