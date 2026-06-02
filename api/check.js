@@ -5,7 +5,7 @@ const REST_URL = "https://peaceful-wildcat-141681.upstash.io";
 const REST_TOKEN = "gQAAAAAAilxAAIgcDJhZjhkMmExMWIyODI0ZTA2YTBhMDU2ZDNlZDFjZWM0ZQ";
 const HEADER_AUTH = `Bearer ${REST_TOKEN}`;
 const SECRET_SALT = "sk5689xd2026#1t";
-const keyPool = [["ceshi132", 1]];
+const keyPool = [["ceshi133", 1]];
 
 const encryptKey = (str) => crypto.createHmac("md5", SECRET_SALT).update(str).digest("hex");
 
@@ -14,6 +14,10 @@ async function runRedis(cmd) {
     headers: { Authorization: HEADER_AUTH },
   });
   return res.json();
+}
+
+export async function GET() {
+  return NextResponse.json({msg:"接口正常，POST传key校验"});
 }
 
 export async function POST(req) {
