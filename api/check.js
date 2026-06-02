@@ -6,7 +6,7 @@ let activeKey = {}
 const SECRET_SALT = "sk5689xd2026#1t"
 //卡密池：[明文卡密,可用天数]
 const keyPool = [
-    ["gegggegggg333",1],
+    ["jjjjj520",1],
     ["hubeufuisfi1661",1],
     ["fgbgkrnsjng1919",1]
 ]
