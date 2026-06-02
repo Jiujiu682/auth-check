@@ -2,7 +2,7 @@ const crypto = require('crypto')
 
 //发卡密：["卡密","天数"]
 const keyPool = [
-  ["sgdhdhdfthh5156",1],
+  ["GGGGGGGGGG111",1],
   ["mi222",90],
   ["mi333",365]
 ]
