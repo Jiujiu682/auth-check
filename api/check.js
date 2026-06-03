@@ -2,14 +2,13 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { Redis } from "@upstash/redis";
 
-const redis = Redis.fromConfig({
+const redis = Redis({
   url: "https://peaceful-wildcat-141681.upstash.io",
   token: "gQAAAAAAilxAAIgcDJhZjhkMmExMWIyODI0ZTA2YTBhMDU2ZDNlZDFjZWM0ZQ"
 });
-
 const SECRET_SALT = "sk5689xd2026#1t";
-const keyPool = [["ceshi133", 1],["ceshi136", 1]];
-const encryptKey = s => crypto.createHmac("md5",SECRET_SALT).update(s).digest("hex");
+const keyPool = [["ceshi133",1],["ceshi136",1]];
+const encryptKey=s=>crypto.createHmac("md5",SECRET_SALT).update(s).digest("hex");
 
 export async function POST(req){
   const {key}=await req.json();
