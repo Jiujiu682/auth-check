@@ -13,7 +13,7 @@ const list = [["sanceshi135",3],["sanceshi221",3],["sanceshi215",3],["sanceshi24
 const banKey = ["ceshi133"];
 
 const md5=s=>crypto.createHmac("md5",salt).update(s).digest("hex");
-// 改为北京时间+8h，时间戳不变只改展示
+//北京时间格式化
 const formatTime = (sec)=>{
   const d = new Date(sec*1000 + 8*3600*1000);
   return `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}/${d.getHours()}:${d.getMinutes()}`
@@ -23,7 +23,7 @@ export const runtime = "edge";
 
 export async function POST(req){
   try{
-    const {key}=await req.json();
+    const {key,type}=await req.json();
     if(banKey.includes(key)){
       const h=md5(key);
       let bl=await redis.get("usedBlackList")||[];
@@ -40,6 +40,7 @@ export async function POST(req){
     if(black.includes(h)) return NextResponse.json({ok:false,msg:"黑名单"});
     const exp=await redis.get(`active:${h}`);
 
+    //已激活的卡：不管查询/激活，只校验剩余时间
     if(exp){
       const expireDate=new Date(exp);
       const now=new Date();
@@ -74,6 +75,26 @@ export async function POST(req){
     }
     if(!hour)return NextResponse.json({ok:false,msg:"密钥不存在"});
 
+    //【type=query：只查卡，不激活、不存数据】
+    if(type === "query"){
+      const now=new Date();
+      const end=new Date();
+      end.setHours(end.getHours()+hour);
+      const activeTs = Math.floor(now.getTime()/1000);
+      const expireTs = Math.floor(end.getTime()/1000);
+      return NextResponse.json({
+        ok:true,
+        originKey:src,
+        activeTime:activeTs,
+        activeDate:formatTime(activeTs),
+        expireTime:expireTs,
+        expireDate:formatTime(expireTs),
+        leftHour:hour,
+        state:"未激活"
+      });
+    }
+
+    //【type=active：用户正式激活，写入Redis】
     const now=new Date();
     const end=new Date();
     end.setHours(end.getHours()+hour);
@@ -92,7 +113,8 @@ export async function POST(req){
       activeDate:formatTime(activeTs),
       expireTime:expireTs,
       expireDate:formatTime(expireTs),
-      leftHour:leftHour
+      leftHour:leftHour,
+      state:"已激活"
     });
   }catch(e){
     return NextResponse.json({ok:false,err:e.message});
