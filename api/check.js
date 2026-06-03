@@ -13,9 +13,9 @@ const list = [["sanceshi135",3],["sanceshi221",3],["sanceshi215",3],["sanceshi24
 const banKey = ["ceshi133"];
 
 const md5=s=>crypto.createHmac("md5",salt).update(s).digest("hex");
-//格式化：2026.6.3/15:00
+// 改为北京时间+8h，时间戳不变只改展示
 const formatTime = (sec)=>{
-  const d = new Date(sec*1000);
+  const d = new Date(sec*1000 + 8*3600*1000);
   return `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}/${d.getHours()}:${d.getMinutes()}`
 };
 
