@@ -8,7 +8,7 @@ const redis = Redis.fromEnv({
 });
 const salt = "sk5689xd2026#1t";
 //白名单只剩135，133移除
-const list = [["ceshi151",1]];
+const list = [["sanceshi135",3]];
 //禁用名单：写在这里，不管有没有开通一律拉黑
 const banKey = ["ceshi133"];
 
