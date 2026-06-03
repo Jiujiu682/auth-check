@@ -2,61 +2,46 @@ import { NextResponse } from "next/server";
 import { Redis } from "@upstash/redis";
 import crypto from "crypto";
 
-const redis = Redis({
-  url: "https://peaceful-wildcat-141681.upstash.io",
-  token: "gQAAAAAAilxAAIgcDJhZjhkMmExMWIyODI0ZTA2YTBhMDU2ZDNlZDFjZWM0ZQ"
+const redis = Redis.fromEnv({
+  url:"https://peaceful-wildcat-141681.upstash.io",
+  token:"gQAAAAAAilxAAIgcDJhZjhkMmExMWIyODI0ZTA2YTBhMDU2ZDNlZDFjZWM0ZQ"
 });
 const salt = "sk5689xd2026#1t";
-const validKeys = [["ceshi133", 1], ["ceshi136", 1]];
+const list = [["ceshi133",1],["ceshi135",1]];
+const md5=s=>crypto.createHmac("md5",salt).update(s).digest("hex");
 
-function getMd5(str) {
-  return crypto.createHmac("md5", salt).update(str).digest("hex");
-}
+export const runtime = "edge";
 
-export async function POST(req) {
-  try {
-    const body = await req.json();
-    const inputKey = body.key;
-    const hash = getMd5(inputKey);
-
-    const blackArr = await redis.get("usedBlackList") || [];
-    if (blackArr.includes(hash)) {
-      return NextResponse.json({ ok: false, msg: "黑名单" });
-    }
-
-    const expireStr = await redis.get(`active:${hash}`);
-    const now = new Date();
-    if (expireStr) {
-      const endTime = new Date(expireStr);
-      if (endTime <= now) {
-        blackArr.push(hash);
-        await redis.set("usedBlackList", blackArr);
-        await redis.del(`active:${hash}`, `raw:${hash}`);
-        return NextResponse.json({ ok: false, msg: "过期拉黑" });
+export async function POST(req){
+  try{
+    const {key}=await req.json();
+    const h=md5(key);
+    const black=await redis.get("usedBlackList")||[];
+    if(black.includes(h)) return NextResponse.json({ok:false,msg:"黑名单"});
+    const exp=await redis.get(`active:${h}`);
+    if(exp){
+      if(new Date(exp)<=new Date()){
+        black.push(h);
+        await redis.set("usedBlackList",black);
+        await redis.del(`active:${h}`,`raw:${h}`);
+        return NextResponse.json({ok:false,msg:"过期拉黑"});
       }
-      const origin = await redis.get(`raw:${hash}`);
-      return NextResponse.json({ ok: true, originKey: origin });
+      return NextResponse.json({ok:true,originKey:await redis.get(`raw:${h}`)});
     }
-
-    let day = 0, originKey = "";
-    for (let [k, d] of validKeys) {
-      if (getMd5(k) === hash) {
-        day = d;
-        originKey = k;
-      }
+    let day=0,src="";
+    for(let [k,d]of list){
+      if(md5(k)===h){day=d;src=k;}
     }
-    if (!day) return NextResponse.json({ ok: false, msg: "密钥不存在" });
-
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + day);
-    await redis.set(`active:${hash}`, endDate.toISOString());
-    await redis.set(`raw:${hash}`, originKey);
-    return NextResponse.json({ ok: true, day, md: hash, originKey });
-  } catch (e) {
-    return NextResponse.json({ ok: false, err: e.message });
+    if(!day)return NextResponse.json({ok:false,msg:"密钥不存在"});
+    const end=new Date();
+    end.setDate(end.getDate()+day);
+    await redis.set(`active:${h}`,end.toISOString());
+    await redis.set(`raw:${h}`,src);
+    return NextResponse.json({ok:true,day,originKey:src});
+  }catch(e){
+    return NextResponse.json({ok:false,err:e.message});
   }
 }
-
-export async function GET() {
-  return NextResponse.json({ msg: "接口正常" });
+export async function GET(){
+  return NextResponse.json({msg:"正常"});
 }
