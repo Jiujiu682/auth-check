@@ -7,7 +7,8 @@ const redis = Redis.fromEnv({
   token:"gQAAAAAAilxAAIgcDJhZjhkMmExMWIyODI0ZTA2YTBhMDU2ZDNlZDFjZWM0ZQ"
 });
 const salt = "sk5689xd2026#1t";
-const list = [["ceshi133",1],["ceshi135",1]];
+// 第二个数值=小时，示例：24=24小时，3=3小时
+const list = [["ceshi140",1],["ceshi141",3]];
 const md5=s=>crypto.createHmac("md5",salt).update(s).digest("hex");
 
 export const runtime = "edge";
@@ -28,16 +29,16 @@ export async function POST(req){
       }
       return NextResponse.json({ok:true,originKey:await redis.get(`raw:${h}`)});
     }
-    let day=0,src="";
+    let hour=0,src="";
     for(let [k,d]of list){
-      if(md5(k)===h){day=d;src=k;}
+      if(md5(k)===h){hour=d;src=k;}
     }
-    if(!day)return NextResponse.json({ok:false,msg:"密钥不存在"});
+    if(!hour)return NextResponse.json({ok:false,msg:"密钥不存在"});
     const end=new Date();
-    end.setDate(end.getDate()+day);
+    end.setHours(end.getHours()+hour);
     await redis.set(`active:${h}`,end.toISOString());
     await redis.set(`raw:${h}`,src);
-    return NextResponse.json({ok:true,day,originKey:src});
+    return NextResponse.json({ok:true,hour,originKey:src});
   }catch(e){
     return NextResponse.json({ok:false,err:e.message});
   }
