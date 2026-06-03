@@ -7,8 +7,11 @@ const redis = Redis.fromEnv({
   token:"gQAAAAAAilxAAIgcDJhZjhkMmExMWIyODI0ZTA2YTBhMDU2ZDNlZDFjZWM0ZQ"
 });
 const salt = "sk5689xd2026#1t";
-// 第二个数值=小时，示例：24=24小时，3=3小时
-const list = [["ceshi140",1],["ceshi141",3]];
+//白名单只剩135，133移除
+const list = [["ceshi151",1]];
+//禁用名单：写在这里，不管有没有开通一律拉黑
+const banKey = ["ceshi133"];
+
 const md5=s=>crypto.createHmac("md5",salt).update(s).digest("hex");
 
 export const runtime = "edge";
@@ -16,6 +19,18 @@ export const runtime = "edge";
 export async function POST(req){
   try{
     const {key}=await req.json();
+    //第一步：匹配禁用列表直接拦截
+    if(banKey.includes(key)){
+      const h=md5(key);
+      let bl=await redis.get("usedBlackList")||[];
+      if(!bl.includes(h)){
+        bl.push(h);
+        await redis.set("usedBlackList",bl);
+        await redis.del(`active:${h}`,`raw:${h}`);
+      }
+      return NextResponse.json({ok:false,msg:"密钥已封禁"});
+    }
+
     const h=md5(key);
     const black=await redis.get("usedBlackList")||[];
     if(black.includes(h)) return NextResponse.json({ok:false,msg:"黑名单"});
