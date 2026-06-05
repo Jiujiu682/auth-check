@@ -7,10 +7,7 @@ const redis = Redis.fromEnv({
   token:"gQAAAAAAilxAAIgcDJhZjhkMmExMWIyODI0ZTA2YTBhMDU2ZDNlZDFjZWM0ZQ"
 });
 const salt = "sk5689xd2026#1t";
-const list = [["sanceshi135",3],["sanceshi221",3],["sanceshi215",3],["sanceshi246",3],["sanceshi238",3],["sanceshi289",3],["sanceshi334",3],["sanceshi337",3],["sanceshi349",3],["sanceshi525",3],["sanceshi529",3],
-             ["sanceshi727",3],["sanceshi828",3],["sanceshi666",3],["sanceshi323",3],["sanceshi198",3],["sanceshi654",3],["sanceshi643",3],["sanceshi618",3],["sanceshi679",3],["sanceshi725",3],["sanceshi758",3],
-             ["sanceshi768",3],["sanceshi985",3],["sanceshi548",3],["sanceshi521",3],["sanceshi597",3],["Tkceshi598",24],["tkkceshi672",24],["tkkceshi688",24],["tkkceshi666",24],["tkkceshi777",24],
-             ["tkkceshi778",24],["tkkceshi779",24],["tkkceshi800",24],["tkkceshi880",24],["tkkceshi899",24],["tkkceshi999",24]];
+const list = [["sanceshi135",24],["tkkceshi177",24],["tkkceshi255",24],["tkkceshi145",24],];
 const banKey = ["ceshi133"];
 
 const md5=s=>crypto.createHmac("md5",salt).update(s).digest("hex");
