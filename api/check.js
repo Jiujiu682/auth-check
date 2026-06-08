@@ -3,122 +3,173 @@ import { Redis } from "@upstash/redis";
 import crypto from "crypto";
 
 const redis = Redis.fromEnv({
-  url:"https://peaceful-wildcat-141681.upstash.io",
-  token:"gQAAAAAAilxAAIgcDJhZjhkMmExMWIyODI0ZTA2YTBhMDU2ZDNlZDFjZWM0ZQ"
+  url: "https://peaceful-wildcat-141681.upstash.io",
+  token: "gQAAAAAAilxAAIgcDJhZjhkMmExMWIyODI0ZTA2YTBhMDU2ZDNlZDFjZWM0ZQ"
 });
-const salt = "sk5689xd2026#1t";
-const list = [["tkkceshi1200",168],["tkkceshi1224",168],["tkkceshi1300",24],["tkkceshi1327",24],["tkkceshi1378",24],["tkkceshi1479",24],["tkkceshi1372",24],["tkkceshi1450",24],["tkkceshi1422",24],["tkkceshi1428",24]
-             ,["tkkceshi1532",24],["tkkceshi1578",24],["tkkceshi1523",24],["tkkceshi1549",24],["tkkceshi1672",24],["tkkceshi1655",24],["tkkceshi1611",24]];
-const banKey = ["ceshi133"];
 
-const md5=s=>crypto.createHmac("md5",salt).update(s).digest("hex");
-//北京时间格式化
-const formatTime = (sec)=>{
-  const d = new Date(sec*1000 + 8*3600*1000);
-  return `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}/${d.getHours()}:${d.getMinutes()}`
+const salt = "sk5689xd2026#1t";
+// 卡密列表 [卡密, 小时数]
+const cardList = [
+  ["tkkceshi1200", 168],
+  ["tkkceshi1224", 168],
+  ["tkkceshi1300", 24],
+  ["tkkceshi1327", 24],
+  ["tkkceshi1378", 24],
+  ["tkkceshi1479", 24],
+  ["tkkceshi1372", 24],
+  ["tkkceshi1450", 24],
+  ["tkkceshi1422", 24],
+  ["tkkceshi1428", 24],
+  ["tkkceshi1532", 24],
+  ["tkkceshi1578", 24],
+  ["tkkceshi1523", 24],
+  ["tkkceshi1549", 24],
+  ["tkkceshi1672", 24],
+  ["tkkceshi1655", 24],
+  ["tkkceshi1611", 24]
+];
+// 封禁卡密（修复原语法错误）
+const banKey = ["ceshi133", "tkkceshi1134"];
+
+// HMAC-MD5 加密
+const md5 = (s) => crypto.createHmac("md5", salt).update(s).digest("hex");
+
+// 北京时间格式化
+const formatTime = (sec) => {
+  const d = new Date(sec * 1000 + 8 * 3600 * 1000);
+  return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}/${d.getHours()}:${d.getMinutes()}`;
 };
 
 export const runtime = "edge";
 
-export async function POST(req){
-  try{
-    const {key,type}=await req.json();
-    if(banKey.includes(key)){
-      const h=md5(key);
-      let bl=await redis.get("usedBlackList")||[];
-      if(!bl.includes(h)){
+export async function POST(req) {
+  try {
+    const body = await req.json();
+    const { key, type } = body || {};
+
+    // 1. 入参非空校验
+    if (!key || typeof key !== "string") {
+      return NextResponse.json({ ok: false, msg: "密钥不能为空" });
+    }
+
+    // 2. 校验全局封禁列表
+    if (banKey.includes(key)) {
+      const h = md5(key);
+      let bl = await redis.get("usedBlackList") || [];
+      if (!Array.isArray(bl)) bl = [];
+      if (!bl.includes(h)) {
         bl.push(h);
-        await redis.set("usedBlackList",bl);
-        await redis.del(`active:${h}`,`raw:${h}`,`start:${h}`);
+        await redis.set("usedBlackList", bl);
+        await redis.del(`active:${h}`, `raw:${h}`, `start:${h}`);
       }
-      return NextResponse.json({ok:false,msg:"密钥已封禁"});
+      return NextResponse.json({ ok: false, msg: "密钥已封禁" });
     }
 
-    const h=md5(key);
-    const black=await redis.get("usedBlackList")||[];
-    if(black.includes(h)) return NextResponse.json({ok:false,msg:"黑名单"});
-    const exp=await redis.get(`active:${h}`);
+    const h = md5(key);
+    // 3. 读取黑名单并容错
+    let blackList = await redis.get("usedBlackList") || [];
+    if (!Array.isArray(blackList)) blackList = [];
+    if (blackList.includes(h)) {
+      return NextResponse.json({ ok: false, msg: "黑名单" });
+    }
 
-    //已激活的卡：不管查询/激活，只校验剩余时间
-    if(exp){
-      const expireDate=new Date(exp);
-      const now=new Date();
-      if(expireDate<=now){
-        black.push(h);
-        await redis.set("usedBlackList",black);
-        await redis.del(`active:${h}`,`raw:${h}`,`start:${h}`);
-        return NextResponse.json({ok:false,msg:"过期拉黑"});
+    // 4. 已激活的卡密：计算剩余时间
+    const expireStr = await redis.get(`active:${h}`);
+    if (expireStr) {
+      const expireDate = new Date(expireStr);
+      const now = new Date();
+
+      // 已过期 → 加入黑名单并清理数据
+      if (expireDate <= now) {
+        blackList.push(h);
+        await redis.set("usedBlackList", blackList);
+        await redis.del(`active:${h}`, `raw:${h}`, `start:${h}`);
+        return NextResponse.json({ ok: false, msg: "过期拉黑" });
       }
-      const startStr=await redis.get(`start:${h}`);
-      const startDate=new Date(startStr);
-      const leftMs=expireDate.getTime()-now.getTime();
-      const leftHour=Number((leftMs/3600000).toFixed(2));
 
-      const activeTs = Math.floor(startDate.getTime()/1000);
-      const expireTs = Math.floor(expireDate.getTime()/1000);
+      const startStr = await redis.get(`start:${h}`);
+      const startDate = new Date(startStr);
+      const leftMs = expireDate.getTime() - now.getTime();
+      const leftHour = Number((leftMs / 3600000).toFixed(2));
+      const remainSecond = Math.floor(leftMs / 1000); // 剩余秒数 → 给客户端使用
+
+      const activeTs = Math.floor(startDate.getTime() / 1000);
+      const expireTs = Math.floor(expireDate.getTime() / 1000);
 
       return NextResponse.json({
-        ok:true,
-        originKey:await redis.get(`raw:${h}`),
-        activeTime:activeTs,
-        activeDate:formatTime(activeTs),
-        expireTime:expireTs,
-        expireDate:formatTime(expireTs),
-        leftHour:leftHour
+        ok: true,
+        originKey: await redis.get(`raw:${h}`),
+        activeTime: activeTs,
+        activeDate: formatTime(activeTs),
+        expireTime: expireTs,
+        expireDate: formatTime(expireTs),
+        leftHour: leftHour,
+        remain_second: remainSecond // 新增：客户端需要的剩余秒数
       });
     }
 
-    let hour=0,src="";
-    for(let [k,d]of list){
-      if(md5(k)===h){hour=d;src=k;}
+    // 5. 未激活：匹配卡密时长
+    let validHour = 0;
+    let srcKey = "";
+    for (const [k, d] of cardList) {
+      if (md5(k) === h) {
+        validHour = d;
+        srcKey = k;
+        break;
+      }
     }
-    if(!hour)return NextResponse.json({ok:false,msg:"密钥不存在"});
+    if (!validHour) {
+      return NextResponse.json({ ok: false, msg: "密钥不存在" });
+    }
 
-    //【type=query：只查卡，不激活、不存数据】
-    if(type === "query"){
-      const now=new Date();
-      const end=new Date();
-      end.setHours(end.getHours()+hour);
-      const activeTs = Math.floor(now.getTime()/1000);
-      const expireTs = Math.floor(end.getTime()/1000);
+    const now = new Date();
+    const end = new Date();
+    end.setHours(end.getHours() + validHour);
+    const totalSecond = validHour * 3600; // 总秒数
+
+    // 6. 仅查询模式 type=query
+    if (type === "query") {
+      const activeTs = Math.floor(now.getTime() / 1000);
+      const expireTs = Math.floor(end.getTime() / 1000);
       return NextResponse.json({
-        ok:true,
-        originKey:src,
-        activeTime:activeTs,
-        activeDate:formatTime(activeTs),
-        expireTime:expireTs,
-        expireDate:formatTime(expireTs),
-        leftHour:hour,
-        state:"未激活"
+        ok: true,
+        originKey: srcKey,
+        activeTime: activeTs,
+        activeDate: formatTime(activeTs),
+        expireTime: expireTs,
+        expireDate: formatTime(expireTs),
+        leftHour: validHour,
+        remain_second: totalSecond, // 剩余秒数
+        state: "未激活"
       });
     }
 
-    //【type=active：用户正式激活，写入Redis】
-    const now=new Date();
-    const end=new Date();
-    end.setHours(end.getHours()+hour);
-    await redis.set(`active:${h}`,end.toISOString());
-    await redis.set(`raw:${h}`,src);
-    await redis.set(`start:${h}`,now.toISOString());
+    // 7. 正式激活 type=active
+    await redis.set(`active:${h}`, end.toISOString());
+    await redis.set(`raw:${h}`, srcKey);
+    await redis.set(`start:${h}`, now.toISOString());
 
-    const leftHour=Number(hour.toFixed(2));
-    const activeTs = Math.floor(now.getTime()/1000);
-    const expireTs = Math.floor(end.getTime()/1000);
+    const leftHour = Number(validHour.toFixed(2));
+    const activeTs = Math.floor(now.getTime() / 1000);
+    const expireTs = Math.floor(end.getTime() / 1000);
 
     return NextResponse.json({
-      ok:true,
-      originKey:src,
-      activeTime:activeTs,
-      activeDate:formatTime(activeTs),
-      expireTime:expireTs,
-      expireDate:formatTime(expireTs),
-      leftHour:leftHour,
-      state:"已激活"
+      ok: true,
+      originKey: srcKey,
+      activeTime: activeTs,
+      activeDate: formatTime(activeTs),
+      expireTime: expireTs,
+      expireDate: formatTime(expireTs),
+      leftHour: leftHour,
+      remain_second: totalSecond, // 剩余秒数
+      state: "已激活"
     });
-  }catch(e){
-    return NextResponse.json({ok:false,err:e.message});
+
+  } catch (e) {
+    return NextResponse.json({ ok: false, err: e.message });
   }
 }
-export async function GET(){
-  return NextResponse.json({msg:"正常"});
+
+export async function GET() {
+  return NextResponse.json({ msg: "正常" });
 }
