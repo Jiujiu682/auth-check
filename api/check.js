@@ -10,26 +10,21 @@ const redis = Redis.fromEnv({
 const salt = "sk5689xd2026#1t";
 // 卡密列表 [卡密, 小时数]
 const cardList = [
-  ["tkkceshi2100", 24],
-  ["tkkceshi2224", 24],
-  ["tkkceshi2279", 24],
-  ["tkkceshi2358", 24],
-  ["tkkceshi3378", 24],
-  ["tkkceshi1597", 24],
-  ["tkkceshi2759", 24],
-  ["tkkceshi2894", 24],
-  ["tkkceshi2654", 24],
-  ["tkkceshi2728", 24],
-  ["tkkceshi2512", 24],
-  ["tkkceshi3725", 24],
-  ["tkkceshi3152", 24],
-  ["tkkceshi3598", 24],
-  ["tkkceshi3695", 24],
-  ["tkkceshi3721", 24],
-  ["tkkceshi3811", 24],
-  ["tkkceshi3965", 24],
   ["tkkceshi5795", 24],
-  ["tkkceshi5788", 24]
+  ["tkkceshi5788", 24],
+  ["tkkceshi5724", 24],
+  ["tkkceshi5928", 24],
+  ["tkkceshi6134", 24],
+  ["tkkceshi6722", 24],
+  ["tkkceshi6254", 24],
+  ["tkkceshi7435", 24],
+  ["tkkceshi5432", 24],
+  ["tkkceshi5847", 24],
+  ["tkkceshi5925", 24],
+  ["tkkceshi6797", 24],
+  ["tkkceshi7432", 24],
+  ["tkkceshi7699", 24],
+  ["tkkceshi8154", 24]
 ];
 // 封禁卡密（修复原语法错误）
 const banKey = ["ceshi133", "tkkceshi1134"];
