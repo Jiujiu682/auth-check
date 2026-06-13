@@ -30,26 +30,26 @@ const cardList = [
   ["tkkg3a9vs", 24],
   ["tkkop0q8m", 24],
   ["tkkss4ini", 24],
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  ["tkkkygbwt", 24],
+  ["tkk10pjjf", 24],
+  ["tkk94d8fv", 24],
+  ["tkk5kynfc", 24],
+  ["tkke99mpx", 24],
+  ["tkkvee0te", 24],
+  ["tkky77lp7", 24],
+  ["tkkm3emtr", 24],
+  ["tkkszpuga", 24],
+  ["tkks6e9od", 24],
+  ["tkktcc3lz", 24],
+  ["tkkjozu8l", 24],
+  ["tkkrwe1no", 24],
+  ["tkkrpae24", 24],
+  ["tkk3fgo9l", 24],
+  ["tkkwozwpo", 24],
+  ["tkkfhndlt", 24],
+  ["tkk09ws1x", 24],
+  ["tkk5exvvs", 24],
+  ["tkkozvw8x", 24],
   ["zkk1ym75l", 168],
   ["zkkio2rso", 168],
   ["zkku5bpvz", 168],
@@ -111,7 +111,6 @@ const cardList = [
   ["zkkpjzkn8", 168],
   ["zkkryssjb", 168]
 ];
-
 // 封禁卡密（修复原语法错误）
 const banKey = ["ceshi133", "tkkceshi1134"];
 
