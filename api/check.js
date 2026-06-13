@@ -29,8 +29,89 @@ const cardList = [
   ["tkk2qrso8", 24],
   ["tkkg3a9vs", 24],
   ["tkkop0q8m", 24],
-  ["tkkss4ini", 24]
+  ["tkkss4ini", 24],
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  ["zkk1ym75l", 168],
+  ["zkkio2rso", 168],
+  ["zkku5bpvz", 168],
+  ["zkkbrkz7o", 168],
+  ["zkkh60d45", 168],
+  ["zkk83v3s1", 168],
+  ["zkk3zr56a", 168],
+  ["zkkotjt06", 168],
+  ["zkkck2i78", 168],
+  ["zkk200mk7", 168],
+  ["zkkvnf9sm", 168],
+  ["zkkjwv4fk", 168],
+  ["zkkttpg1h", 168],
+  ["zkkzg6rf6", 168],
+  ["zkkb380b8", 168],
+  ["zkkzi8um1", 168],
+  ["zkksg9bl3", 168],
+  ["zkk5k3vz8", 168],
+  ["zkk0dnsyy", 168],
+  ["zkkktxcl1", 168],
+  ["zkks9x5o3", 168],
+  ["zkkibleqf", 168],
+  ["zkkxye6ba", 168],
+  ["zkkbz22vx", 168],
+  ["zkkjk5b4n", 168],
+  ["zkkcs87lb", 168],
+  ["zkkcq7skp", 168],
+  ["zkkzwx4ph", 168],
+  ["zkk8yczrk", 168],
+  ["zkke161fj", 168],
+  ["zkkgoy4j2", 168],
+  ["zkky7m746", 168],
+  ["zkk1cdt97", 168],
+  ["zkkppiraj", 168],
+  ["zkkxmmv7w", 168],
+  ["zkkrc9dko", 168],
+  ["zkkgrfdjs", 168],
+  ["zkkd9u7vt", 168],
+  ["zkk2ihgs6", 168],
+  ["zkkwb06ar", 168],
+  ["zkkheqs1q", 168],
+  ["zkkkvitns", 168],
+  ["zkkc7tch1", 168],
+  ["zkki9ah02", 168],
+  ["zkkiv1kja", 168],
+  ["zkkdfcy5l", 168],
+  ["zkk3ujst6", 168],
+  ["zkkr7io6p", 168],
+  ["zkk4opfug", 168],
+  ["zkkdk4ee6", 168],
+  ["zkkh93165", 168],
+  ["zkk1tan9d", 168],
+  ["zkkavvxgn", 168],
+  ["zkkw435bh", 168],
+  ["zkkzllk9l", 168],
+  ["zkk0k8xq2", 168],
+  ["zkkl5wa8v", 168],
+  ["zkkmopbcv", 168],
+  ["zkkpjzkn8", 168],
+  ["zkkryssjb", 168]
 ];
+
 // 封禁卡密（修复原语法错误）
 const banKey = ["ceshi133", "tkkceshi1134"];
 
