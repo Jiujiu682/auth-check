@@ -128,14 +128,11 @@ export const runtime = "edge";
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { key, type, deviceId } = body || {};
+    const { key, type } = body || {};
 
-    // 1. 入参校验：必须携带设备唯一标识
+    // 1. 入参校验：只校验key，移除deviceId
     if (!key || typeof key !== "string") {
       return NextResponse.json({ ok: false, msg: "密钥不能为空" });
-    }
-    if (!deviceId || typeof deviceId !== "string") {
-      return NextResponse.json({ ok: false, msg: "缺少设备唯一标识 deviceId" });
     }
 
     // 2. 校验全局封禁列表
@@ -146,7 +143,8 @@ export async function POST(req) {
       if (!bl.includes(h)) {
         bl.push(h);
         await redis.set("usedBlackList", bl);
-        await redis.del(`active:${h}`, `raw:${h}`, `start:${h}`, `online:${h}`, `bind:${h}`);
+        // 删除所有相关缓存（移除bind）
+        await redis.del(`active:${h}`, `raw:${h}`, `start:${h}`, `online:${h}`);
       }
       return NextResponse.json({ ok: false, msg: "密钥已封禁" });
     }
@@ -159,52 +157,36 @@ export async function POST(req) {
       return NextResponse.json({ ok: false, msg: "黑名单" });
     }
 
-    // ===================== 永久bind绑定 + 在线心跳核心改造 =====================
-    const bindKey = `bind:${h}`;
+    // ===================== 在线控制逻辑：最多2个在线，5分钟超时 =====================
     const onlineKey = `online:${h}`;
-    const offlineExpire = 300; // 5分钟无请求判定离线，单位秒
+    const offlineExpire = 300; // 5分钟无心跳判定离线
     const nowTs = Math.floor(Date.now() / 1000);
 
-    // 读取永久绑定设备ID
-    const bindDeviceId = await redis.get(bindKey);
-    const onlineRaw = await redis.get(onlineKey);
-    let onlineDeviceId = null;
-    let lastHeartTs = 0;
-    if (onlineRaw) {
-      ({ onlineDeviceId, lastHeartTs } = JSON.parse(onlineRaw));
-    }
+    // 获取当前所有在线连接数组
+    let onlineList = await redis.get(onlineKey);
+    onlineList = onlineList ? JSON.parse(onlineList) : [];
 
-    // 分支1：该密钥已有永久设备绑定
-    if (bindDeviceId) {
-      // 绑定设备与当前设备不一致 → 拦截多开
-      if (bindDeviceId !== deviceId) {
+    // 清理超时连接
+    onlineList = onlineList.filter(item => nowTs - item < offlineExpire);
+
+    // 刷新本次请求时间戳，去重（同一程序多次心跳覆盖自身记录）
+    const existIdx = onlineList.findIndex(t => nowTs - t < offlineExpire);
+    if (existIdx > -1) {
+      onlineList[existIdx] = nowTs;
+    } else {
+      // 新连接，判断是否达到上限2
+      if (onlineList.length >= 2) {
+        await redis.set(onlineKey, JSON.stringify(onlineList));
         return NextResponse.json({
           ok: false,
-          msg: "该密钥已在其他设备绑定，单密钥仅允许一台设备使用"
+          msg: "该密钥已达最大2台在线限制，请等待5分钟离线后重试"
         });
       }
-      // 绑定设备匹配，直接刷新心跳，放行（离线5分钟也不拦截）
-      await redis.set(onlineKey, JSON.stringify({
-        onlineDeviceId: deviceId,
-        lastHeartTs: nowTs
-      }));
-    } else {
-      // 分支2：无永久绑定（首次激活场景）
-      if (onlineRaw) {
-        // 有在线记录且未离线，设备不匹配拦截
-        if (nowTs - lastHeartTs < offlineExpire && onlineDeviceId !== deviceId) {
-          return NextResponse.json({
-            ok: false,
-            msg: "该密钥已在其他设备登录，单密钥仅允许一台设备在线"
-          });
-        }
-      }
-      // 无绑定，仅刷新在线，bind要等到激活时写入永久绑定
-      await redis.set(onlineKey, JSON.stringify({
-        onlineDeviceId: deviceId,
-        lastHeartTs: nowTs
-      }));
+      onlineList.push(nowTs);
     }
+
+    // 更新在线缓存
+    await redis.set(onlineKey, JSON.stringify(onlineList));
     // =================================================================
 
     // 4. 已激活的卡密：计算剩余时间
@@ -217,7 +199,7 @@ export async function POST(req) {
       if (expireDate <= now) {
         blackList.push(h);
         await redis.set("usedBlackList", blackList);
-        await redis.del(`active:${h}`, `raw:${h}`, `start:${h}`, onlineKey, bindKey);
+        await redis.del(`active:${h}`, `raw:${h}`, `start:${h}`, onlineKey);
         return NextResponse.json({ ok: false, msg: "密钥使用期限已结束" });
       }
 
@@ -278,12 +260,10 @@ export async function POST(req) {
       });
     }
 
-    // 7. 正式激活 type=active：写入永久bind绑定
+    // 7. 正式激活 type=active：移除bind绑定相关存储
     await redis.set(`active:${h}`, end.toISOString());
     await redis.set(`raw:${h}`, srcKey);
     await redis.set(`start:${h}`, now.toISOString());
-    // 写入永久设备绑定，永不过期
-    await redis.set(bindKey, deviceId);
 
     const leftHour = Number(validHour.toFixed(2));
     const activeTs = Math.floor(now.getTime() / 1000);
