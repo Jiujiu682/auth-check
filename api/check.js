@@ -111,7 +111,7 @@ const cardList = [
   ["zkkpjzkn8", 168],
   ["zkkryssjb", 168]
 ];
-// 封禁卡密（修复原语法错误）
+// 封禁卡密
 const banKey = ["ceshi133", "tkkceshi1134"];
 
 // HMAC-MD5 加密
@@ -128,11 +128,14 @@ export const runtime = "edge";
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { key, type } = body || {};
+    const { key, type, deviceId } = body || {};
 
-    // 1. 入参非空校验
+    // 1. 入参校验：必须携带设备唯一标识
     if (!key || typeof key !== "string") {
       return NextResponse.json({ ok: false, msg: "密钥不能为空" });
+    }
+    if (!deviceId || typeof deviceId !== "string") {
+      return NextResponse.json({ ok: false, msg: "缺少设备唯一标识 deviceId" });
     }
 
     // 2. 校验全局封禁列表
@@ -143,18 +146,44 @@ export async function POST(req) {
       if (!bl.includes(h)) {
         bl.push(h);
         await redis.set("usedBlackList", bl);
-        await redis.del(`active:${h}`, `raw:${h}`, `start:${h}`);
+        await redis.del(`active:${h}`, `raw:${h}`, `start:${h}`, `online:${h}`);
       }
       return NextResponse.json({ ok: false, msg: "密钥已封禁" });
     }
 
     const h = md5(key);
-    // 3. 读取黑名单并容错
+    // 3. 读取黑名单
     let blackList = await redis.get("usedBlackList") || [];
     if (!Array.isArray(blackList)) blackList = [];
     if (blackList.includes(h)) {
       return NextResponse.json({ ok: false, msg: "黑名单" });
     }
+
+    // ===================== 单设备在线校验核心逻辑 =====================
+    const onlineKey = `online:${h}`;
+    const onlineData = await redis.get(onlineKey);
+    const nowTs = Math.floor(Date.now() / 1000);
+    const offlineExpire = 300; // 5分钟无请求判定离线，单位秒
+
+    if (onlineData) {
+      const { onlineDeviceId, lastHeartTs } = JSON.parse(onlineData);
+      // 未超时离线
+      if (nowTs - lastHeartTs < offlineExpire) {
+        // 设备不一致：拦截多开
+        if (onlineDeviceId !== deviceId) {
+          return NextResponse.json({
+            ok: false,
+            msg: "该密钥已在其他设备登录，单密钥仅允许一台设备在线"
+          });
+        }
+      }
+    }
+    // 刷新当前设备在线心跳
+    await redis.set(onlineKey, JSON.stringify({
+      onlineDeviceId: deviceId,
+      lastHeartTs: nowTs
+    }));
+    // =================================================================
 
     // 4. 已激活的卡密：计算剩余时间
     const expireStr = await redis.get(`active:${h}`);
@@ -166,7 +195,7 @@ export async function POST(req) {
       if (expireDate <= now) {
         blackList.push(h);
         await redis.set("usedBlackList", blackList);
-        await redis.del(`active:${h}`, `raw:${h}`, `start:${h}`);
+        await redis.del(`active:${h}`, `raw:${h}`, `start:${h}`, onlineKey);
         return NextResponse.json({ ok: false, msg: "过期拉黑" });
       }
 
@@ -174,7 +203,7 @@ export async function POST(req) {
       const startDate = new Date(startStr);
       const leftMs = expireDate.getTime() - now.getTime();
       const leftHour = Number((leftMs / 3600000).toFixed(2));
-      const remainSecond = Math.floor(leftMs / 1000); // 剩余秒数 → 给客户端使用
+      const remainSecond = Math.floor(leftMs / 1000);
 
       const activeTs = Math.floor(startDate.getTime() / 1000);
       const expireTs = Math.floor(expireDate.getTime() / 1000);
@@ -187,7 +216,7 @@ export async function POST(req) {
         expireTime: expireTs,
         expireDate: formatTime(expireTs),
         leftHour: leftHour,
-        remain_second: remainSecond // 新增：客户端需要的剩余秒数
+        remain_second: remainSecond
       });
     }
 
@@ -208,7 +237,7 @@ export async function POST(req) {
     const now = new Date();
     const end = new Date();
     end.setHours(end.getHours() + validHour);
-    const totalSecond = validHour * 3600; // 总秒数
+    const totalSecond = validHour * 3600;
 
     // 6. 仅查询模式 type=query
     if (type === "query") {
@@ -222,7 +251,7 @@ export async function POST(req) {
         expireTime: expireTs,
         expireDate: formatTime(expireTs),
         leftHour: validHour,
-        remain_second: totalSecond, // 剩余秒数
+        remain_second: totalSecond,
         state: "未激活"
       });
     }
@@ -244,7 +273,7 @@ export async function POST(req) {
       expireTime: expireTs,
       expireDate: formatTime(expireTs),
       leftHour: leftHour,
-      remain_second: totalSecond, // 剩余秒数
+      remain_second: totalSecond,
       state: "已激活"
     });
 
