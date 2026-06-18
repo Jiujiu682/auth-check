@@ -111,7 +111,7 @@ const cardList = [
   ["zkkpjzkn8", 168],
   ["zkkryssjb", 168]
 ];
-// 封禁卡密
+// 封禁卡密（修复原语法错误）
 const banKey = ["ceshi133", "tkkceshi1134"];
 
 // HMAC-MD5 加密
@@ -130,7 +130,7 @@ export async function POST(req) {
     const body = await req.json();
     const { key, type } = body || {};
 
-    // 1. 入参校验：只校验key，移除deviceId
+    // 1. 入参非空校验
     if (!key || typeof key !== "string") {
       return NextResponse.json({ ok: false, msg: "密钥不能为空" });
     }
@@ -143,51 +143,18 @@ export async function POST(req) {
       if (!bl.includes(h)) {
         bl.push(h);
         await redis.set("usedBlackList", bl);
-        // 删除所有相关缓存（移除bind）
-        await redis.del(`active:${h}`, `raw:${h}`, `start:${h}`, `online:${h}`);
+        await redis.del(`active:${h}`, `raw:${h}`, `start:${h}`);
       }
       return NextResponse.json({ ok: false, msg: "密钥已封禁" });
     }
 
     const h = md5(key);
-    // 3. 读取黑名单
+    // 3. 读取黑名单并容错
     let blackList = await redis.get("usedBlackList") || [];
     if (!Array.isArray(blackList)) blackList = [];
     if (blackList.includes(h)) {
       return NextResponse.json({ ok: false, msg: "黑名单" });
     }
-
-    // ===================== 在线控制逻辑：最多2个在线，5分钟超时 =====================
-    const onlineKey = `online:${h}`;
-    const offlineExpire = 300; // 5分钟无心跳判定离线
-    const nowTs = Math.floor(Date.now() / 1000);
-
-    // 获取当前所有在线连接数组
-    let onlineList = await redis.get(onlineKey);
-    onlineList = onlineList ? JSON.parse(onlineList) : [];
-
-    // 清理超时连接
-    onlineList = onlineList.filter(item => nowTs - item < offlineExpire);
-
-    // 刷新本次请求时间戳，去重（同一程序多次心跳覆盖自身记录）
-    const existIdx = onlineList.findIndex(t => nowTs - t < offlineExpire);
-    if (existIdx > -1) {
-      onlineList[existIdx] = nowTs;
-    } else {
-      // 新连接，判断是否达到上限2
-      if (onlineList.length >= 2) {
-        await redis.set(onlineKey, JSON.stringify(onlineList));
-        return NextResponse.json({
-          ok: false,
-          msg: "该密钥已达最大2台在线限制，请等待5分钟离线后重试"
-        });
-      }
-      onlineList.push(nowTs);
-    }
-
-    // 更新在线缓存
-    await redis.set(onlineKey, JSON.stringify(onlineList));
-    // =================================================================
 
     // 4. 已激活的卡密：计算剩余时间
     const expireStr = await redis.get(`active:${h}`);
@@ -195,19 +162,19 @@ export async function POST(req) {
       const expireDate = new Date(expireStr);
       const now = new Date();
 
-      // 仅密钥真正过期 → 加入黑名单并清理全部数据
+      // 已过期 → 加入黑名单并清理数据
       if (expireDate <= now) {
         blackList.push(h);
         await redis.set("usedBlackList", blackList);
-        await redis.del(`active:${h}`, `raw:${h}`, `start:${h}`, onlineKey);
-        return NextResponse.json({ ok: false, msg: "密钥使用期限已结束" });
+        await redis.del(`active:${h}`, `raw:${h}`, `start:${h}`);
+        return NextResponse.json({ ok: false, msg: "过期拉黑" });
       }
 
       const startStr = await redis.get(`start:${h}`);
       const startDate = new Date(startStr);
       const leftMs = expireDate.getTime() - now.getTime();
       const leftHour = Number((leftMs / 3600000).toFixed(2));
-      const remainSecond = Math.floor(leftMs / 1000);
+      const remainSecond = Math.floor(leftMs / 1000); // 剩余秒数 → 给客户端使用
 
       const activeTs = Math.floor(startDate.getTime() / 1000);
       const expireTs = Math.floor(expireDate.getTime() / 1000);
@@ -220,7 +187,7 @@ export async function POST(req) {
         expireTime: expireTs,
         expireDate: formatTime(expireTs),
         leftHour: leftHour,
-        remain_second: remainSecond
+        remain_second: remainSecond // 新增：客户端需要的剩余秒数
       });
     }
 
@@ -241,7 +208,7 @@ export async function POST(req) {
     const now = new Date();
     const end = new Date();
     end.setHours(end.getHours() + validHour);
-    const totalSecond = validHour * 3600;
+    const totalSecond = validHour * 3600; // 总秒数
 
     // 6. 仅查询模式 type=query
     if (type === "query") {
@@ -255,12 +222,12 @@ export async function POST(req) {
         expireTime: expireTs,
         expireDate: formatTime(expireTs),
         leftHour: validHour,
-        remain_second: totalSecond,
+        remain_second: totalSecond, // 剩余秒数
         state: "未激活"
       });
     }
 
-    // 7. 正式激活 type=active：移除bind绑定相关存储
+    // 7. 正式激活 type=active
     await redis.set(`active:${h}`, end.toISOString());
     await redis.set(`raw:${h}`, srcKey);
     await redis.set(`start:${h}`, now.toISOString());
@@ -277,7 +244,7 @@ export async function POST(req) {
       expireTime: expireTs,
       expireDate: formatTime(expireTs),
       leftHour: leftHour,
-      remain_second: totalSecond,
+      remain_second: totalSecond, // 剩余秒数
       state: "已激活"
     });
 
