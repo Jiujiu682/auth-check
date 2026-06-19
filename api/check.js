@@ -89,6 +89,7 @@ const cardList = [
   ["tkkwntlod", 24],
   ["tkk7xsgqk", 24],
   ["tkkb2vr90", 24],
+  ["tkkip7ei1", 24]
 ];
 // 封禁卡密（修复原语法错误）
 const banKey = ["ceshi133", "tkkceshi1134"];
