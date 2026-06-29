@@ -135,7 +135,8 @@ const cardList = [
   ["ykn7nz946a", 720],
   ["ykdsimhkb8", 720],
   ["yk0ihfmufx", 720],
-  ["ykdrzj3yno", 720]
+  ["ykdrzj3yno", 720],
+  ["sidrzj", 4]
 ];
 // 封禁卡密（修复原语法错误）
 const banKey = ["ceshi133", "tkkceshi1134"];
